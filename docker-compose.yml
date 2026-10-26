@@ -1,0 +1,21 @@
+# Local PostgreSQL with pgvector. The password is for this private compose file only.
+# Change it before the database is reachable from another machine.
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: fiqh
+      POSTGRES_PASSWORD: fiqh-local-only
+      POSTGRES_DB: fiqh
+    ports:
+      - "5432:5432"
+    volumes:
+      - fiqh_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fiqh -d fiqh"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  fiqh_pg:

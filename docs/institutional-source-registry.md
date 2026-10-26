@@ -1,0 +1,18 @@
+# Institutional source registry
+
+Checked on 26 October 2026 from this machine. Every record has `trustedPool: []` and `retrievalAllowed: false`. A homepage check is not permission to store or retrieve fatwas. No fatwa text was copied into this repository. No institution is in an automatic madhhab pool.
+
+| Id | What was fetched | Methodology result | Retrieval |
+| --- | --- | --- | --- |
+| jamia-darul-uloom-karachi | `https://darululoomkarachi.edu.pk/` HTTP 200. Page names Jamia Darul Uloom Karachi, a Darul Ifta, and Mufti Muhammad Shafi. | A search for Hanafi / حنفي on that page did not find an explicit madhhab label. Unverified. | Off. Excluded from a trusted Hanafi pool. |
+| onlinedarulifta-karachi | `https://onlinedarulifta.com/` HTTP 200. Title: "Darulifta Jamia Darululoom Karachi Official is coming soon". `robots.txt` HTTP 404. | Not a corpus. | Off. Not merged with the seminary site. |
+| darul-uloom-deoband | `https://darululoom-deoband.com/en/academic-departments-2/` HTTP 200. | The page links Online Fatwa to `http://darulifta-deoband.com` and says selected fatwas are at `www.darulifta-deoband.com`. The fetched text did not say Hanafi. A Maslak page was not fetched. | Off. This is not Darul Uloom Waqf Deoband. |
+| darulifta-deoband-portal | `https://darulifta-deoband.com/`, `/en`, and `/robots.txt` HTTP 403. | Content not read. Identity rests on the seminary page that names the domain. | Off. |
+| darul-uloom-waqf-deoband | `https://darulifta.dud.edu.in/` HTTP 200. Footer and meta description: Darul Uloom Waqf Deoband. Body: "No Categories Found!" | Methodology not stated. | Off. Not merged with Deoband. |
+| jamia-binoria | `https://binoria.org/daruliftaView` HTTP 200. `robots.txt` allows all. | The page says "Hanafi & Shafi Specialization" and dedicated Shafi'i experts. Mixed. A robots allow-all rule is not a copy licence. `onlinefatawa.com` was not fetched. | Off for every school. |
+| mufti-wilayah-persekutuan | `https://www.muftiwp.gov.my/` HTTP 200. Article `https://www.muftiwp.gov.my/en/artikel/bayan-linnas/6003-bayan-linnas-siri-ke-301-fatwa-dari-perspektif-undang-undang-di-wilayah-persekutuan` HTTP 200. | The article quotes Administration of Islamic Law (Federal Territories) Act 505 section 39(1): the Mufti ordinarily follows the accepted Shafi'i view. Section 39(2) allows the Hanafi, Maliki, or Hanbali accepted view for public interest. Section 39(3) allows a further public-interest exception. Status: `primary_with_exceptions`. Scope is the Federal Territories. Shafi'i is the statutory starting point, not a label for every fatwa. | Off until a person approves a specific document and its school. |
+| alifta-saudi | `https://alifta.gov.sa/` HTTP 200, redirected to `https://alifta.gov.sa/ar/home`. `robots.txt` HTTP 200, allows `/`, disallows `/login-success` and API paths. Those API paths were not called. | A Hanbali-only method was not established from the homepage. A secondary copy of fatwa 4172 was not used. | Off. Excluded from a Hanbali pool. |
+| dar-alifta-egypt | `https://www.dar-alifta.org/ar/about` HTTP 200. | A search for مذهب, شافعي, حنفي, and مالكي found no match. Not assigned to Shafi'i. | Off. |
+| habous-morocco | `https://habous.gov.ma/` HTTP 200 and "Site en maintenance". `https://www.habous.gov.ma/fr/Islam-au-maroc.html` HTTP 404. The préposés URL returned HTTP 404. `https://cso.ma/` did not connect. | A search index still describes older pages as mentioning the Maliki rite. Those pages were not live. Methodology not established. | Off. Pending, not a Maliki pool. |
+
+Code registry: `src/data/sources.ts`. The public sources page renders these records and does not call the sites again. `checkPermittedPage` refuses to fetch while `retrievalAllowed` is false.
