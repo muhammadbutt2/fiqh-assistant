@@ -12,7 +12,8 @@ export default function MethodologyPage() {
         <li>Recognized fiqh terms are expanded into Arabic and Urdu search terms from the terminology registry. Negations, conditions, numbers and quantities in the question are recorded so they are not lost. That is not a translation of the whole sentence.</li>
         <li>If a translation provider is configured on the server, Arabic and Urdu translations are added as extra queries. None is configured in the default setup.</li>
         <li>Lexical search runs on the original text and the variants. Semantic embeddings are not configured, so there is no cross-language vector index.</li>
-        <li>Only approved, searchable passages in the selected madhhab can be cited. Unmeasured OCR stays out.</li>
+        <li>Approved, searchable passages in the selected madhhab can support a ruling. A single matching passage is enough to display.</li>
+        <li>Unmeasured OCR may appear as a labelled candidate so a retrieved page is not hidden. It is not approved evidence and no ruling is taken from it.</li>
       </ol>
       <h2>Language support, as implemented</h2>
       <p>This version supports three languages: English, Urdu and Arabic. The books are Arabic and Urdu. A row below is not a claim that retrieval in that language has been measured on the real books.</p>

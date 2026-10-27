@@ -125,10 +125,11 @@ describe("accuracy gate", () => {
     const store = createMemoryStore();
     const result = await index(prepared, store, calibration);
     expect(result.searchable).toBe(false);
-    expect(result.chunks).toBe(0);
+    expect(result.candidateChunks).toBeGreaterThan(0);
     expect(result.ocrStatus).toBe("accuracy_unmeasured");
     expect(result.pageStates.accuracy_unmeasured).toBe(12);
-    expect((await store.listChunks()).filter((chunk) => chunk.searchable)).toEqual([]);
+    expect((await store.listChunks()).every((chunk) => !chunk.searchable && chunk.ocrQuality === "unmeasured")).toBe(true);
+    expect((await store.listChunks()).some((chunk) => chunkAllowed(chunk, "hanafi", false))).toBe(false);
     expect(result.warnings.join(" ")).toContain("nothing was promoted");
   });
 
@@ -137,9 +138,11 @@ describe("accuracy gate", () => {
     await addReferences(prepared, { 2: goodEdit, 6: goodEdit });
     const calibration = await evaluate(prepared);
     expect(calibration.verdict.status).toBe("insufficient_samples");
-    const result = await index(prepared, createMemoryStore(), calibration);
+    const store = createMemoryStore();
+    const result = await index(prepared, store, calibration);
     expect(result.searchable).toBe(false);
-    expect(result.chunks).toBe(0);
+    expect(result.candidateChunks).toBeGreaterThan(0);
+    expect((await store.listChunks()).every((chunk) => !chunk.searchable)).toBe(true);
   });
 
   it("needs samples from the front, middle and back of the book", async () => {
@@ -148,7 +151,9 @@ describe("accuracy gate", () => {
     const calibration = await evaluate(prepared);
     expect(calibration.verdict.status).toBe("insufficient_coverage");
     expect(calibration.coverage.missing).toEqual(expect.arrayContaining(["middle", "back"]));
-    expect((await index(prepared, createMemoryStore(), calibration)).chunks).toBe(0);
+    const coverage = await index(prepared, createMemoryStore(), calibration);
+    expect(coverage.searchable).toBe(false);
+    expect(coverage.candidateChunks).toBeGreaterThan(0);
   });
 
   it("fails when the measured error exceeds the thresholds, and approval cannot override it", async () => {
@@ -161,6 +166,7 @@ describe("accuracy gate", () => {
     const result = await index(prepared, store, calibration);
     expect(result.searchable).toBe(false);
     expect(result.chunks).toBe(0);
+    expect(result.candidateChunks).toBe(0);
     expect(result.ocrStatus).toBe("accuracy_failed");
     expect(result.pageStates.accuracy_failed).toBe(12);
   });
@@ -405,7 +411,7 @@ describe("retrieval and review gates", () => {
     expect(chunkAllowed(chunk, "hanafi", false)).toBe(true);
     expect(chunkAllowed({ ...chunk, ocrQuality: "unmeasured" }, "hanafi", false)).toBe(false);
     expect(chunkAllowed({ ...chunk, ocrQuality: "poor" }, "hanafi", false)).toBe(false);
-    expect(chunkAllowed({ ...chunk, provenance: chunk.provenance && { ...chunk.provenance, accuracy: { ...chunk.provenance.accuracy, status: "unmeasured" as never } } }, "hanafi", false)).toBe(false);
+    expect(chunkAllowed({ ...chunk, provenance: chunk.provenance && { ...chunk.provenance, accuracy: { ...chunk.provenance.accuracy, status: "unmeasured" } } }, "hanafi", false)).toBe(false);
     expect(chunkAllowed({ ...chunk, searchable: false }, "hanafi", false)).toBe(false);
     expect(chunkAllowed({ ...chunk, rightsStatus: "rights_review_required" }, "hanafi", false)).toBe(false);
     expect(chunkAllowed(chunk, "shafii", false)).toBe(false);

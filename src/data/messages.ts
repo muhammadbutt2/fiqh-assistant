@@ -3,12 +3,21 @@ import { getLocale, type LocaleDefinition, type SupportedLanguage } from "@/data
 export const NO_EVIDENCE_EN =
   "We could not locate a sufficiently reliable source for this question in the currently indexed material for your selected madhhab. We do not want to guess or present an unsupported religious ruling. Please consult a qualified mufti.";
 
+export const CANDIDATE_EVIDENCE_EN =
+  "A matching passage was found in a book for the selected school. It is shown below. It is not approved evidence: the OCR has not been measured against human-checked pages, or rights and verification are still pending. No ruling is issued from it.";
+
 type Bundle = Record<SupportedLanguage, string>;
 
 const noEvidence: Bundle = {
   en: NO_EVIDENCE_EN,
   ur: "آپ کے منتخب مذہب کے موجودہ انڈیکس شدہ مواد میں اس سوال کے لیے کافی قابلِ اعتماد ماخذ نہیں ملا۔ ہم اندازہ لگانا یا بغیر سند کے شرعی حکم پیش نہیں کرنا چاہتے۔ براہِ کرم کسی اہل مفتی سے رجوع کریں۔",
   ar: "لم نعثر على مصدر موثوق بدرجة كافية لهذا السؤال في المادة المفهرسة حاليًا للمذهب الذي اخترته. لا نريد أن نخمّن أو أن نقدّم حكمًا شرعيًا بلا مستند. يُرجى مراجعة مفتٍ مؤهَّل.",
+};
+
+const candidateEvidence: Bundle = {
+  en: CANDIDATE_EVIDENCE_EN,
+  ur: "منتخب مذہب کی ایک کتاب میں مماثل عبارت ملی ہے۔ وہ نیچے دکھائی گئی ہے۔ یہ منظور شدہ دلیل نہیں: او سی آر کی درستگی انسانی حوالہ جات سے نہیں ناپی گئی، یا حقوق اور تصدیق ابھی باقی ہیں۔ اس سے کوئی حکم نہیں نکالا جا رہا۔",
+  ar: "وُجدت عبارة مطابقة في كتاب للمذهب المختار. هي معروضة أدناه. ليست دليلاً معتمدًا: لم تُقَس دقة التعرف الضوئي على صفحات راجعها إنسان، أو أن الحقوق والتحقق ما زالا معلّقين. لا يُستخرج منها حكم.",
 };
 
 const generationUnavailable: Bundle = {
@@ -87,6 +96,7 @@ const ui: Record<SupportedLanguage, UiStrings> = {
 export type Copy = {
   locale: LocaleDefinition;
   noEvidence: string;
+  candidateEvidence: string;
   generationUnavailable: string;
   notAMufti: string;
   ui: UiStrings;
@@ -101,6 +111,7 @@ export function getCopy(localeId: string): Copy {
   return {
     locale,
     noEvidence: noEvidence[locale.localeId],
+    candidateEvidence: candidateEvidence[locale.localeId],
     generationUnavailable: generationUnavailable[locale.localeId],
     notAMufti: notAMufti[locale.localeId],
     ui: ui[locale.localeId],

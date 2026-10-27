@@ -96,8 +96,8 @@ describe("three-language terminology retrieval", () => {
     }
   });
 
-  it("reports an admin trace without treating terminology search as a measured translation", () => {
-    const report = diagnoseRetrieval({ question: "Do I have to pay zakat on my savings?", madhhab: "hanafi", chunks });
+  it("reports an admin trace without treating terminology search as a measured translation", async () => {
+    const report = await diagnoseRetrieval({ question: "Do I have to pay zakat on my savings?", madhhab: "hanafi", chunks });
     expect(report.detectedLanguage).toBe("en");
     expect(report.arabicQuery).toContain("زكاة المال المدخر");
     expect(report.arabicQueryMethod).toBe("terminology");
@@ -106,6 +106,8 @@ describe("three-language terminology retrieval", () => {
     expect(report.candidates.slice(0, 2).map((item) => item.sourceId).sort()).toEqual(["zakat-h", "zakat-h-ur"]);
     expect(report.candidates.map((item) => item.sourceId)).not.toContain("zakat-m");
     expect(report.unapprovedCandidatesForMadhhab).toBe(1);
-    expect(report.note).toContain("Unmeasured OCR is excluded");
+    expect(report.unapprovedMatches.map((item) => item.sourceId)).toContain("zakat-ocr");
+    expect(report.websitesSkipped.length).toBeGreaterThan(0);
+    expect(report.note).toContain("labelled candidates");
   });
 });

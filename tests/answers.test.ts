@@ -121,6 +121,85 @@ describe("answer pipeline", () => {
     expect(answer.notAMufti).toBe(true);
     expect(answer.semanticRetrieval).toBe("unavailable");
     expect(answer.limitations.join(" ")).toContain("library is not populated");
+    expect(answer.evidenceRole).toBe("none");
+  });
+
+  it("shows a single approved passage instead of waiting for a second book", async () => {
+    const chunk = fixture({ id: "one", madhhab: "hanafi", originalText: "تجب الزكاة في المال المدخر TEST FIXTURE", isTestFixture: false });
+    const answer = await answerQuestion({
+      madhhab: "hanafi",
+      answerLocale: "en",
+      question: "Do I have to pay zakat on my savings?",
+      chunks: [chunk],
+      chat: unavailableChat(),
+    });
+    expect(answer.citations).toHaveLength(1);
+    expect(answer.citations[0]?.sourceId).toBe("one");
+    expect(answer.citations[0]?.evidenceRole).toBe("approved");
+    expect(answer.evidenceRole).toBe("approved");
+    expect(answer.answerStatus).toBe("human_review_required");
+  });
+
+  it("shows unmeasured OCR as a labelled candidate and does not generate a ruling from it", async () => {
+    const draft = fixture({
+      id: "ocr-draft",
+      madhhab: "hanafi",
+      originalText: "تجب الزكاة في المال المدخر إذا بلغ النصاب TEST FIXTURE",
+      ocrQuality: "unmeasured",
+      searchable: false,
+      trustClassification: "pending",
+      verificationStatus: "pending",
+      rightsStatus: "rights_review_required",
+      isTestFixture: false,
+    });
+    const answer = await answerQuestion({
+      madhhab: "hanafi",
+      answerLocale: "en",
+      question: "Do I have to pay zakat on my savings?",
+      chunks: [draft],
+      chat: chat(async () => validModel(draft, "This would be an invented ruling.")),
+    });
+    expect(answer.citations.map((item) => item.sourceId)).toEqual(["ocr-draft"]);
+    expect(answer.citations[0]?.evidenceRole).toBe("candidate");
+    expect(answer.evidenceRole).toBe("candidate");
+    expect(answer.answerStatus).toBe("human_review_required");
+    expect(answer.answer).not.toContain("invented ruling");
+    expect(answer.humanReviewRecommended).toBe(true);
+    expect(answer.research?.websitesSkipped.length).toBeGreaterThan(0);
+  });
+
+  it("pulls the neighbouring PDF page when a match is found", async () => {
+    const match = fixture({ id: "z-10", documentId: "quduri", madhhab: "hanafi", originalText: "تجب الزكاة في المال المدخر TEST FIXTURE", pdfPageStart: 10, pdfPageEnd: 10, isTestFixture: false });
+    const neighbor = fixture({ id: "z-11", documentId: "quduri", madhhab: "hanafi", originalText: "ويشترط النصاب والحول في ذلك TEST FIXTURE", pdfPageStart: 11, pdfPageEnd: 11, isTestFixture: false });
+    const answer = await answerQuestion({
+      madhhab: "hanafi",
+      answerLocale: "en",
+      question: "Do I have to pay zakat on my savings?",
+      chunks: [match, neighbor],
+      chat: unavailableChat(),
+    });
+    expect(answer.citations.map((item) => item.sourceId).sort()).toEqual(["z-10", "z-11"]);
+    expect(answer.research?.neighborsAdded).toBe(1);
+  });
+
+  it("does not show a Maliki passage for a Hanafi question even as a candidate", async () => {
+    const maliki = fixture({
+      id: "m-draft",
+      madhhab: "maliki",
+      originalText: "تجب الزكاة في المال المدخر TEST FIXTURE",
+      ocrQuality: "unmeasured",
+      searchable: false,
+      isTestFixture: false,
+    });
+    const answer = await answerQuestion({
+      madhhab: "hanafi",
+      answerLocale: "en",
+      question: "Do I have to pay zakat on my savings?",
+      chunks: [maliki],
+      chat: unavailableChat(),
+    });
+    expect(answer.citations).toEqual([]);
+    expect(answer.evidenceRole).toBe("none");
   });
 
   it("uses the Urdu no-evidence draft and keeps the English sentence alongside it until native review", async () => {

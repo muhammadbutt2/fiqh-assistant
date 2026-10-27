@@ -26,7 +26,7 @@ export type Institution = {
   accessMethod: string;
   licenseNotes: string;
   linkingAllowed: "unknown";
-  retrievalAllowed: false;
+  retrievalAllowed: boolean;
   storingAllowed: "unknown" | "no";
   redistributionAllowed: "no" | "unknown";
   lastChecked: string;

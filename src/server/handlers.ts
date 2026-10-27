@@ -86,6 +86,7 @@ export async function postAsk(request: Request, deps: AppDeps): Promise<Response
       acceptUncertainDetection: parsed.data.acceptUncertainDetection,
       chunks: await deps.store.listChunks(),
       frozenChunks: frozen,
+      institutions: await deps.store.listInstitutions(),
       allowTestFixtures: false,
       libraryEmpty: stats.libraryPopulated !== true,
       chat: deps.chat,
@@ -374,9 +375,11 @@ export async function postInstitutionReview(request: Request, deps: AppDeps): Pr
     reviewerNote: z.string().optional(),
     checkedOn: z.string().optional(),
     methodology: z.string().optional(),
+    retrievalAllowed: z.boolean().optional(),
   }).safeParse(await request.json().catch(() => null));
   if (!body.success) return json({ error: "INVALID_REQUEST" }, 400);
-  if ((body.data.trustedPool?.length ?? 0) > 0 && (!body.data.reviewerNote || !body.data.checkedOn || !body.data.methodology)) {
+  const needsReview = (body.data.trustedPool?.length ?? 0) > 0 || body.data.retrievalAllowed === true;
+  if (needsReview && (!body.data.reviewerNote || !body.data.checkedOn || !body.data.methodology)) {
     return json({ error: "VERIFICATION_REQUIRED" }, 400);
   }
   const current = (await deps.store.listInstitutions()).find((item) => item.id === body.data.id) ?? INSTITUTIONS.find((item) => item.id === body.data.id);
@@ -386,7 +389,7 @@ export async function postInstitutionReview(request: Request, deps: AppDeps): Pr
     methodology: body.data.methodology ?? current.methodology,
     lastChecked: (body.data.checkedOn as "2026-10-26") ?? current.lastChecked,
     notes: body.data.reviewerNote ? `${current.notes} Reviewer note: ${body.data.reviewerNote}` : current.notes,
-    retrievalAllowed: false,
+    retrievalAllowed: body.data.retrievalAllowed === true ? true : false,
   });
   return json({ institution: updated });
 }
@@ -399,10 +402,11 @@ export async function postAdminDiagnose(request: Request, deps: AppDeps): Promis
     madhhab: z.string(),
   }).safeParse(await request.json().catch(() => null));
   if (!body.success) return json({ error: "INVALID_REQUEST" }, 400);
-  const report = diagnoseRetrieval({
+  const report = await diagnoseRetrieval({
     question: body.data.question,
     madhhab: parseMadhhab(body.data.madhhab),
     chunks: await deps.store.listChunks(),
+    institutions: await deps.store.listInstitutions(),
   });
   return json(report);
 }

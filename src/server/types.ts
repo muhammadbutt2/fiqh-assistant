@@ -19,8 +19,8 @@ export type ChunkProvenance = {
   ocrModel: string | null;
   ocrTraineddata: Record<string, string> | null;
   ocrMeanConfidence: number | null;
-  accuracy: {
-    status: "not_applicable" | "passed";
+    accuracy: {
+    status: "not_applicable" | "passed" | "unmeasured";
     reliableSamples: number | null;
     strictCer: number | null;
     strictWer: number | null;
@@ -108,6 +108,7 @@ export type PublicCitation = {
   verificationStatus: VerificationStatus;
   opinionLabels: OpinionLabel[];
   testFixture: boolean;
+  evidenceRole: "approved" | "candidate";
   provenance?: {
     extraction: ChunkProvenance["extraction"];
     ocrAccuracy: ChunkProvenance["accuracy"]["status"];
@@ -148,6 +149,21 @@ export type PublicAnswer = {
   candidates?: string[];
   /** How the question was turned into Arabic and Urdu search queries. Search aids, not rulings. */
   querySummary?: QuerySummary;
+  /** Approved evidence, labelled candidate discovery, or nothing retrieved. */
+  evidenceRole?: "approved" | "candidate" | "none";
+  research?: ResearchSummary;
+};
+
+export type ResearchSummary = {
+  evidenceRole: "approved" | "candidate" | "none";
+  approvedMatches: number;
+  candidateMatches: number;
+  neighborsAdded: number;
+  approvedPool: number;
+  candidatePool: number;
+  websitesSearched: number;
+  websitesSkipped: { id: string; reason: string }[];
+  searchMethods: string[];
 };
 
 export type QuerySummary = {

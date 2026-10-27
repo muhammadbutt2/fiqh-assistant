@@ -14,8 +14,10 @@ const USAGE = `Usage (stop the dev server first: the JSON store is rewritten):
   npm run ocr:index -- book --book <id> --approve "<review note>" --reviewer "Name"
   npm run ocr:index -- quarantine --sha <document sha256 prefix>
 
-book: re-evaluates the calibration with the current thresholds, then registers the book and stores chunks only for pages that passed.
-      Without --approve the chunks are stored but stay non-searchable (awaiting review).
+book: re-evaluates the calibration with the current thresholds, then registers the book.
+      Pages that passed measurement are stored as review/index chunks.
+      Unmeasured OCR with text is stored as labelled candidate chunks (not searchable, not approved evidence).
+      Without --approve every stored chunk stays non-searchable.
       --approve records your rights and metadata review. It cannot make a page searchable if the measurement gates failed.
 quarantine: marks a document's chunks as unmeasured OCR and removes them from search.`;
 

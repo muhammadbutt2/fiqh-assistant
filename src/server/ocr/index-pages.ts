@@ -93,6 +93,7 @@ export type IndexResult = {
   pageStates: Record<DocPageState, number>;
   indexedPages: number[];
   chunks: number;
+  candidateChunks: number;
   notPromoted: { pdfPage: number; state: DocPageState; reasons: string[] }[];
   printedPagesAttached: number;
   warnings: string[];
@@ -104,6 +105,84 @@ function emptyStates(): Record<DocPageState, number> {
 
 function chunkId(sourceSha256: string, configHash: string, pdfPage: number, index: number): string {
   return `ck_${createHash("sha256").update(`${sourceSha256}:${configHash}:${pdfPage}:${index}`).digest("hex").slice(0, 32)}`;
+}
+
+function chunksFromRecords(input: {
+  records: PageRecord[];
+  document: StoredDocument;
+  calibration: CalibrationReport;
+  sourceSha256: string;
+  configHash: string;
+  printed: Record<string, number>;
+  pageState: string;
+  ocrQuality: StoredChunk["ocrQuality"];
+  searchable: boolean;
+  accuracyStatus: NonNullable<StoredChunk["provenance"]>["accuracy"]["status"];
+}): { chunks: StoredChunk[]; printedAttached: number } {
+  const group: PageRecord[][] = [];
+  for (const record of input.records) {
+    const last = group[group.length - 1];
+    if (last && (last[last.length - 1] as PageRecord).pdfPage + 1 === record.pdfPage) last.push(record);
+    else group.push([record]);
+  }
+  const chunks: StoredChunk[] = [];
+  let printedAttached = 0;
+  for (const run of group) {
+    const pages: ExtractedPage[] = run.map((record) => {
+      const printedPage = input.printed[String(record.pdfPage)] ?? null;
+      if (printedPage !== null) printedAttached++;
+      return { pdfPage: record.pdfPage, text: record.text, printedPage };
+    });
+    const built = chunkPages(pages, {
+      documentId: input.document.id,
+      workId: input.document.workId,
+      editionId: null,
+      madhhab: input.document.madhhab,
+      comparativeAppliesTo: [],
+      opinionLabels: [],
+      sourceClass: input.document.sourceClass,
+      language: input.document.language,
+      volume: input.document.volume,
+      ocrQuality: input.ocrQuality,
+      rightsStatus: input.document.rightsStatus,
+      verificationStatus: input.document.verificationStatus,
+      trustClassification: input.document.trustClassification,
+      searchable: input.searchable,
+      url: input.document.url,
+      fatwaNumber: input.document.fatwaNumber,
+      title: input.document.title,
+      author: input.document.author,
+      editionLabel: input.document.editionLabel,
+      isTestFixture: false,
+      embedding: null,
+      translation: null,
+    });
+    const perPage = new Map<number, number>();
+    for (const chunk of built) {
+      const record = run.find((item) => item.pdfPage === chunk.pdfPageStart) as PageRecord;
+      const index = perPage.get(record.pdfPage) ?? 0;
+      perPage.set(record.pdfPage, index + 1);
+      const isOcr = record.method === "ocr";
+      const provenance: ChunkProvenance = {
+        bookId: input.calibration.bookId,
+        sourceSha256: input.sourceSha256,
+        configHash: input.configHash,
+        extraction: isOcr ? "ocr" : "embedded_text",
+        pageState: input.pageState,
+        ocrEngine: record.ocr?.engine ?? null,
+        ocrEngineVersion: record.ocr?.engineVersion ?? null,
+        ocrModel: record.ocr ? record.ocr.languages : null,
+        ocrTraineddata: record.ocr?.traineddata ?? null,
+        ocrMeanConfidence: record.ocr?.meanConfidence ?? null,
+        accuracy: isOcr
+          ? { status: input.accuracyStatus, reliableSamples: input.calibration.reliableSampleCount, strictCer: input.calibration.aggregate.strict?.cer ?? null, strictWer: input.calibration.aggregate.strict?.wer ?? null, thresholdsLoosened: input.calibration.verdict.thresholds.loosened }
+          : { status: "not_applicable", reliableSamples: null, strictCer: null, strictWer: null, thresholdsLoosened: false },
+        printedPageSource: input.printed[String(record.pdfPage)] !== undefined ? "verified_page_map" : "none",
+      };
+      chunks.push({ ...chunk, id: chunkId(input.sourceSha256, input.configHash, record.pdfPage, index), ocrQuality: isOcr ? input.ocrQuality : "not_needed", provenance });
+    }
+  }
+  return { chunks, printedAttached };
 }
 
 export async function indexBook(input: {
@@ -186,70 +265,39 @@ export async function indexBook(input: {
   const docApproved = finalDocument.trustClassification === "approved" && finalDocument.verificationStatus === "verified" && finalDocument.rightsStatus === "approved_for_ingestion";
 
   const printed = pageMap.map?.pages ?? {};
-  const strict = calibration.aggregate.strict;
-  const chunks: StoredChunk[] = [];
-  let printedAttached = 0;
-  const group: PageRecord[][] = [];
-  for (const record of eligible) {
-    const last = group[group.length - 1];
-    if (last && (last[last.length - 1] as PageRecord).pdfPage + 1 === record.pdfPage) last.push(record);
-    else group.push([record]);
-  }
-  for (const run of group) {
-    const pages: ExtractedPage[] = run.map((record) => {
-      const printedPage = printed[String(record.pdfPage)] ?? null;
-      if (printedPage !== null) printedAttached++;
-      return { pdfPage: record.pdfPage, text: record.text, printedPage };
-    });
-    const built = chunkPages(pages, {
-      documentId: finalDocument.id,
-      workId: finalDocument.workId,
-      editionId: null,
-      madhhab: finalDocument.madhhab,
-      comparativeAppliesTo: [],
-      opinionLabels: [],
-      sourceClass: finalDocument.sourceClass,
-      language: finalDocument.language,
-      volume: finalDocument.volume,
-      ocrQuality: "not_needed",
-      rightsStatus: finalDocument.rightsStatus,
-      verificationStatus: finalDocument.verificationStatus,
-      trustClassification: finalDocument.trustClassification,
-      searchable: finalDocument.searchable,
-      url: finalDocument.url,
-      fatwaNumber: finalDocument.fatwaNumber,
-      title: finalDocument.title,
-      author: finalDocument.author,
-      editionLabel: finalDocument.editionLabel,
-      isTestFixture: false,
-      embedding: null,
-      translation: null,
-    });
-    const perPage = new Map<number, number>();
-    for (const chunk of built) {
-      const record = run.find((item) => item.pdfPage === chunk.pdfPageStart) as PageRecord;
-      const index = perPage.get(record.pdfPage) ?? 0;
-      perPage.set(record.pdfPage, index + 1);
-      const isOcr = record.method === "ocr";
-      const provenance: ChunkProvenance = {
-        bookId: calibration.bookId,
-        sourceSha256: input.sourceSha256,
-        configHash: input.configHash,
-        extraction: isOcr ? "ocr" : "embedded_text",
-        pageState: finalDocument.searchable ? "indexed" : docApproved ? "approved_for_indexing" : "awaiting_review",
-        ocrEngine: record.ocr?.engine ?? null,
-        ocrEngineVersion: record.ocr?.engineVersion ?? null,
-        ocrModel: record.ocr ? record.ocr.languages : null,
-        ocrTraineddata: record.ocr?.traineddata ?? null,
-        ocrMeanConfidence: record.ocr?.meanConfidence ?? null,
-        accuracy: isOcr
-          ? { status: "passed", reliableSamples: calibration.reliableSampleCount, strictCer: strict?.cer ?? null, strictWer: strict?.wer ?? null, thresholdsLoosened: calibration.verdict.thresholds.loosened }
-          : { status: "not_applicable", reliableSamples: null, strictCer: null, strictWer: null, thresholdsLoosened: false },
-        printedPageSource: printed[String(record.pdfPage)] !== undefined ? "verified_page_map" : "none",
-      };
-      chunks.push({ ...chunk, id: chunkId(input.sourceSha256, input.configHash, record.pdfPage, index), ocrQuality: isOcr ? "acceptable" : "not_needed", provenance });
-    }
-  }
+  const eligibleBuilt = chunksFromRecords({
+    records: eligible,
+    document: finalDocument,
+    calibration,
+    sourceSha256: input.sourceSha256,
+    configHash: input.configHash,
+    printed,
+    pageState: finalDocument.searchable ? "indexed" : docApproved ? "approved_for_indexing" : "awaiting_review",
+    ocrQuality: "acceptable",
+    searchable: finalDocument.searchable,
+    accuracyStatus: "passed",
+  });
+  const eligiblePages = new Set(eligible.map((record) => record.pdfPage));
+  const candidateRecords = records.filter((record) => {
+    if (eligiblePages.has(record.pdfPage)) return false;
+    if (!record.text.trim()) return false;
+    const state = gateOnly(record).state;
+    return state === "accuracy_unmeasured" || state === "text_extracted";
+  });
+  const candidateBuilt = chunksFromRecords({
+    records: candidateRecords,
+    document: { ...finalDocument, searchable: false, trustClassification: "pending", verificationStatus: "pending" },
+    calibration,
+    sourceSha256: input.sourceSha256,
+    configHash: input.configHash,
+    printed,
+    pageState: "accuracy_unmeasured",
+    ocrQuality: "unmeasured",
+    searchable: false,
+    accuracyStatus: "unmeasured",
+  });
+  const chunks = [...eligibleBuilt.chunks, ...candidateBuilt.chunks];
+  const printedAttached = eligibleBuilt.printedAttached + candidateBuilt.printedAttached;
 
   const existing = (await store.listChunks()).filter((chunk) => chunk.documentId === finalDocument.id && chunk.searchable);
   const searchablePages = new Set<number>((finalDocument.searchable ? chunks : existing).map((chunk) => chunk.pdfPageStart));
@@ -273,6 +321,7 @@ export async function indexBook(input: {
     pageStates: states,
     indexedPages: finalDocument.searchable ? Array.from(searchablePages).sort((a, b) => a - b) : [],
     chunks: chunks.length,
+    candidateChunks: candidateBuilt.chunks.length,
     notPromoted,
     printedPagesAttached: printedAttached,
     warnings,

@@ -27,8 +27,43 @@ export function selectChunks(input: {
   allowTestFixtures: boolean;
   limit?: number;
 }): SelectedChunk[] {
-  const variantSets = input.variants.map((variant) => ({ variant, tokens: new Set(variantTokens(variant.text)) }));
-  const eligible = input.chunks.filter((chunk) => chunkAllowed(chunk, input.madhhab, input.allowTestFixtures));
+  return rankChunks(input.chunks.filter((chunk) => chunkAllowed(chunk, input.madhhab, input.allowTestFixtures)), input.variants, input.limit ?? 8);
+}
+
+/** Matching passages that are not approved evidence: unmeasured OCR, pending rights, awaiting review. */
+export function selectCandidateChunks(input: {
+  chunks: StoredChunk[];
+  madhhab: Madhhab;
+  variants: QueryVariant[];
+  allowTestFixtures: boolean;
+  limit?: number;
+}): SelectedChunk[] {
+  const pool = input.chunks.filter((chunk) => chunkDiscoverable(chunk, input.madhhab, input.allowTestFixtures) && !chunkAllowed(chunk, input.madhhab, input.allowTestFixtures));
+  return rankChunks(pool, input.variants, input.limit ?? 8);
+}
+
+export function expandNeighbors(selected: SelectedChunk[], pool: StoredChunk[], radius = 1): SelectedChunk[] {
+  if (selected.length === 0 || radius < 1) return selected;
+  const have = new Set(selected.map((chunk) => `${chunk.documentId}:${chunk.pdfPageStart}`));
+  const extra: SelectedChunk[] = [];
+  for (const chunk of selected) {
+    for (let delta = -radius; delta <= radius; delta++) {
+      if (delta === 0) continue;
+      const page = chunk.pdfPageStart + delta;
+      for (const neighbor of pool) {
+        if (neighbor.documentId !== chunk.documentId || neighbor.pdfPageStart !== page) continue;
+        const key = `${neighbor.documentId}:${neighbor.pdfPageStart}`;
+        if (have.has(key)) continue;
+        have.add(key);
+        extra.push({ ...neighbor, retrievalScore: chunk.retrievalScore * 0.35, semanticScore: null });
+      }
+    }
+  }
+  return extra.length === 0 ? selected : [...selected, ...extra];
+}
+
+function rankChunks(eligible: StoredChunk[], variants: QueryVariant[], limit: number): SelectedChunk[] {
+  const variantSets = variants.map((variant) => ({ variant, tokens: new Set(variantTokens(variant.text)) }));
   const scored = eligible
     .map((chunk) => {
       const tokens = tokenize(chunk.normalizedText || chunk.originalText);
@@ -42,7 +77,7 @@ export function selectChunks(input: {
         retrievalScore += scriptBoost * (shared.length / Math.max(entry.tokens.size, 1));
       }
       if (!matched) return null;
-      const phrase = input.variants.some((variant) => variant.kind === "glossary" && chunk.normalizedText.includes(tokenize(variant.text).slice(-1)[0] ?? ""));
+      const phrase = variants.some((variant) => variant.kind === "glossary" && chunk.normalizedText.includes(tokenize(variant.text).slice(-1)[0] ?? ""));
       retrievalScore = Math.min(retrievalScore, 3) + CLASS_WEIGHT[chunk.sourceClass] + (phrase ? 0.1 : 0);
       return { ...chunk, retrievalScore, semanticScore: null as number | null };
     })
@@ -56,7 +91,7 @@ export function selectChunks(input: {
     seen.add(key);
     unique.push(chunk);
   }
-  return unique.slice(0, input.limit ?? 8);
+  return unique.slice(0, limit);
 }
 
 function tokenOverlaps(queryTokens: Set<string>, token: string): boolean {
@@ -69,6 +104,14 @@ function tokenOverlaps(queryTokens: Set<string>, token: string): boolean {
   return false;
 }
 
+function madhhabApplies(chunk: StoredChunk, madhhab: Madhhab): boolean {
+  if (chunk.sourceClass === "comparative") {
+    return chunk.comparativeAppliesTo.includes(madhhab) && chunk.opinionLabels.length > 0;
+  }
+  return chunk.madhhab === madhhab;
+}
+
+/** Approved evidence only. Unmeasured OCR, pending rights, and unverified rows stay out. */
 export function chunkAllowed(chunk: StoredChunk, madhhab: Madhhab, allowTestFixtures: boolean): boolean {
   if (!chunk.searchable) return false;
   if (chunk.isTestFixture && !allowTestFixtures) return false;
@@ -79,10 +122,39 @@ export function chunkAllowed(chunk: StoredChunk, madhhab: Madhhab, allowTestFixt
   if (chunk.provenance?.extraction === "ocr" && (chunk.ocrQuality !== "acceptable" || chunk.provenance.accuracy.status !== "passed")) return false;
   if (chunk.sourceClass === "unverified") return false;
   if (chunk.translation?.obscuresCondition) return false;
-  if (chunk.sourceClass === "comparative") {
-    return chunk.comparativeAppliesTo.includes(madhhab) && chunk.opinionLabels.length > 0;
-  }
-  return chunk.madhhab === madhhab;
+  return madhhabApplies(chunk, madhhab);
+}
+
+/** Candidate discovery: same madhhab, real text, not rejected. Does not make the passage approved evidence. */
+export function chunkDiscoverable(chunk: StoredChunk, madhhab: Madhhab, allowTestFixtures: boolean): boolean {
+  if (!chunk.originalText.trim()) return false;
+  if (chunk.isTestFixture && !allowTestFixtures) return false;
+  if (chunk.sourceClass === "unverified") return false;
+  if (chunk.rightsStatus === "rejected") return false;
+  if (chunk.trustClassification === "untrusted") return false;
+  if (chunk.verificationStatus === "rejected") return false;
+  if (chunk.ocrQuality === "poor") return false;
+  if (chunk.translation?.obscuresCondition) return false;
+  return madhhabApplies(chunk, madhhab);
+}
+
+export function explainRejection(chunk: StoredChunk, madhhab: Madhhab, allowTestFixtures: boolean): string | null {
+  if (chunkAllowed(chunk, madhhab, allowTestFixtures)) return null;
+  if (chunk.isTestFixture && !allowTestFixtures) return "test_fixture";
+  if (!madhhabApplies(chunk, madhhab)) return chunk.sourceClass === "comparative" ? "comparative_not_labelled_for_madhhab" : "wrong_madhhab";
+  if (chunk.sourceClass === "unverified") return "unverified_source_class";
+  if (chunk.translation?.obscuresCondition) return "translation_obscures_condition";
+  if (chunk.rightsStatus === "rejected") return "rights_rejected";
+  if (chunk.trustClassification === "untrusted") return "untrusted";
+  if (chunk.verificationStatus === "rejected") return "verification_rejected";
+  if (chunk.ocrQuality === "poor") return "ocr_poor";
+  if (chunk.ocrQuality === "unmeasured" || chunk.ocrQuality === "uncertain") return `ocr_${chunk.ocrQuality}`;
+  if (chunk.provenance?.extraction === "ocr" && chunk.provenance.accuracy.status !== "passed") return "ocr_accuracy_not_passed";
+  if (chunk.rightsStatus !== "approved_for_ingestion") return "rights_not_approved";
+  if (chunk.trustClassification !== "approved") return "not_approved";
+  if (chunk.verificationStatus !== "verified") return "not_verified";
+  if (!chunk.searchable) return "not_searchable";
+  return "excluded";
 }
 
 export function hasUnresolvedDisagreement(chunks: StoredChunk[]): boolean {

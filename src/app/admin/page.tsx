@@ -70,7 +70,7 @@ export default function AdminPage() {
             setTrace(await response.json());
           }}>
             <h2>Retrieval trace</h2>
-            <p>Admin only. Shows detection, Arabic and Urdu queries, and approved candidates. It does not publish anything.</p>
+            <p>Admin only. Shows detection, Arabic and Urdu queries, approved matches, labelled candidate matches, and skipped websites. It does not publish anything.</p>
             <label>Question<textarea value={traceQuestion} onChange={(event) => setTraceQuestion(event.target.value)} /></label>
             <label>School<select value={traceMadhhab} onChange={(event) => setTraceMadhhab(event.target.value)}>{MADHHABS.map((id) => <option key={id}>{id}</option>)}</select></label>
             <button type="submit">Run trace</button>

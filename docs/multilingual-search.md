@@ -57,7 +57,13 @@ Grok's consumer site is not used and not scraped. No paid API is required. Wheth
 
 ## Retrieval
 
-`selectChunks` in `src/server/retrieve.ts` searches the original wording, the normalized form, the registry Arabic and Urdu strings and any provider translation, merges and de-duplicates, and ranks by lexical overlap with a small boost for Arabic/Urdu variants and for source class. Only chunks that pass `chunkAllowed` are candidates: searchable, approved, verified, rights approved, OCR `not_needed` or `acceptable` with a passed accuracy measurement, and the selected madhhab (or a comparative source explicitly labelled for it). `answerQuestion` re-checks the madhhab after selection. Semantic embeddings are not configured and `semanticRetrieval` stays `unavailable`.
+`researchQuestion` in `src/server/research.ts` runs a multi-stage search:
+
+1. Approved evidence (`selectChunks` / `chunkAllowed`): searchable, approved, verified, rights approved, OCR `not_needed` or `acceptable` with a passed accuracy measurement, selected madhhab (or a comparative source labelled for it). A single matching passage is enough to display. Neighbouring PDF pages from the same book are added for context.
+2. If none: labelled candidate discovery (`selectCandidateChunks`): unmeasured OCR or pending-review text in the same madhhab. Shown to the user with a warning. Never used to generate a ruling. Calibration thresholds were not lowered.
+3. Approved institutional websites: planned in `src/server/websites.ts`. Every current record has `retrievalAllowed: false`, so nothing is fetched. A homepage check is not a licence. Off-domain URLs are refused.
+
+Semantic embeddings are not configured and `semanticRetrieval` stays `unavailable`.
 
 ## Answer language
 
@@ -71,11 +77,11 @@ The answer is written in the selected response language regardless of the questi
 
 ## What is searchable
 
-Nothing. The store holds 16 documents and 868 chunks (the quarantined archive.org Minhaj text); approved searchable chunks: 0 for all four madhhabs. Al-Quduri has 36 OCR'd pilot pages and 12 selected calibration pages with drafts, but 0 human reference transcriptions, so its OCR accuracy is unmeasured and it is not indexed. See `docs/ocr-ingestion.md` for the exact remaining steps.
+Approved searchable chunks: 0 for all four madhhabs. Unmeasured OCR drafts are stored as labelled candidates: al-Quduri 72 chunks from 36 OCR pages; Bahishti Zewar English 19 chunks from 12 OCR pages; quarantined Minhaj remains unmeasured. Those drafts can appear in an answer as candidate excerpts. They are not approved evidence. See `docs/ocr-ingestion.md`.
 
 ## Admin trace
 
-Signed-in admins can POST `/api/admin/diagnose` with `{ "question", "madhhab" }` or use Retrieval trace on `/admin`. It returns the full processed query (language, confidence, Arabic and Urdu queries with their methods, concepts, entities, ambiguities, warnings), the approved pool size for the madhhab, the number of unapproved candidates held back, and the ranked candidates with scores.
+Signed-in admins can POST `/api/admin/diagnose` with `{ "question", "madhhab" }` or use Retrieval trace on `/admin`. It returns the processed query, approved pool size, labelled candidate pool, approved matches, unapproved matches with rejection reasons, neighbouring-page count, and skipped websites.
 
 ## Commands
 

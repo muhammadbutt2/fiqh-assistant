@@ -42,6 +42,7 @@ function answer(locale: string, directionLanguage = "ar"): PublicAnswer {
       verificationStatus: "verified",
       opinionLabels: [],
       testFixture: true,
+      evidenceRole: "approved",
     }],
     uncertainties: [],
     humanReviewRecommended: true,

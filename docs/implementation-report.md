@@ -117,3 +117,17 @@ What was run on this machine, in this order, with the results:
 - Not run: `db:migrate` / `db:seed` / `worker` (they need the optional PostgreSQL; the app runs on the JSON store without it).
 
 What "unblocked" does not mean here: no book became searchable. Approved chunks are still 0 for every school, so every question still returns `insufficient_evidence`. That gate opens only with human reference transcriptions (10 or more pages per book), a named reviewer, the edition as printed, and rights approval, none of which can be produced by code or by this assistant without fabricating them.
+
+## Update 2026-10-27 (midday): show a single retrieved passage, do not hide it
+
+The previous behaviour dropped every unmeasured OCR hit, so the user saw `insufficient_evidence` even when al-Quduri pages matched the question. That is now:
+
+- One matching approved passage is enough to display. A second book is not required.
+- If the approved index is empty, matching unmeasured OCR or pending-review text is shown as a labelled candidate. It is not approved evidence. No ruling is generated from it. Calibration thresholds were not lowered.
+- Neighbouring PDF pages from the same book are added for context.
+- Approved websites are planned (`src/server/websites.ts`) and skipped while `retrievalAllowed` is false. Off-domain URLs are refused.
+- Admin diagnose lists approved matches, labelled candidates with rejection reasons, and skipped websites.
+
+`ocr:index` now stores unmeasured OCR as candidate chunks (`searchable: false`, `ocrQuality: unmeasured`). Indexed without `--approve`: al-Quduri 72 chunks (36 pages), Bahishti Zewar English 19 chunks (12 pages). Minhaj stays quarantined unmeasured. Approved searchable chunks remain 0.
+
+Verified: `npm test` 133 passed, typecheck and lint clean.

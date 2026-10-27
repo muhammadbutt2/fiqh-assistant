@@ -1,12 +1,15 @@
 import { z } from "zod";
-import { getCopy } from "@/data/messages";
+import { CANDIDATE_EVIDENCE_EN, getCopy } from "@/data/messages";
 import type { ChatClient, Translator } from "@/server/ai";
 import { AiNotConfiguredError, stripFence } from "@/server/ai";
 import { parseMadhhab, type Madhhab } from "@/server/madhhab";
 import { getLocale } from "@/data/languages";
-import { hasUnresolvedDisagreement, selectChunks } from "@/server/retrieve";
+import { INSTITUTIONS } from "@/data/sources";
+import type { Institution } from "@/data/sources";
+import { hasUnresolvedDisagreement } from "@/server/retrieve";
+import { researchQuestion } from "@/server/research";
 import { processQuestionWithProvider, type ProcessedQuery } from "@/server/query";
-import type { PublicAnswer, PublicCitation, QuerySummary, QueryVariant, StoredChunk } from "@/server/types";
+import type { PublicAnswer, PublicCitation, QuerySummary, QueryVariant, ResearchSummary, StoredChunk } from "@/server/types";
 
 export const PROMPT_VERSION = "2026-10-27.1";
 export const ANSWER_GENERATION_VERSION = "2026-10-27.1";
@@ -58,6 +61,7 @@ export type AnswerInput = {
   allowTestFixtures?: boolean;
   libraryEmpty?: boolean;
   frozenChunks?: StoredChunk[];
+  institutions?: Institution[];
   chat?: ChatClient | null;
   translator?: Translator | null;
   signal?: AbortSignal;
@@ -101,21 +105,27 @@ export async function answerQuestion(input: AnswerInput): Promise<PublicAnswer> 
   const querySummary = querySummaryOf(processed);
 
   const pool = input.frozenChunks ?? input.chunks;
-  const selected = selectChunks({
+  const research = await researchQuestion({
     chunks: pool,
     madhhab,
     variants,
     allowTestFixtures: input.allowTestFixtures === true,
-  }).filter((chunk) => chunk.sourceClass === "comparative" ? chunk.comparativeAppliesTo.includes(madhhab) : chunk.madhhab === madhhab);
+    institutions: input.institutions ?? INSTITUTIONS,
+  });
+  const selected = research.selected;
   const disagreement = hasUnresolvedDisagreement(selected);
   const highStakes = processed.highStakes;
   const fallback = copy.locale.machineTranslation !== "not_required";
+  const websiteNote = research.websites.skipped.length > 0
+    ? `Approved institutional websites were not used as evidence (${research.websites.skipped.length} domain(s) skipped; none have retrievalAllowed).`
+    : null;
 
-  if (selected.length === 0) {
+  if (research.evidenceRole === "none") {
     const limitations = [
-      input.libraryEmpty ? "The library is not populated. No book or fatwa has been approved for search." : "No approved passage in this madhhab matched the Arabic and Urdu search.",
+      input.libraryEmpty ? "The library is not populated. No book or fatwa has been approved for search." : "No matching passage in this madhhab was found in the approved index or in labelled candidate drafts.",
       ...searchNotes(translationMethod, detection.uncertain),
     ];
+    if (websiteNote) limitations.push(websiteNote);
     if (fallback) limitations.push("Machine translation into this language has not been validated. The message below is a fixed draft pending native-speaker review, with the English wording kept alongside it.");
     return baseAnswer({
       input,
@@ -135,15 +145,49 @@ export async function answerQuestion(input: AnswerInput): Promise<PublicAnswer> 
       semantic: "unavailable",
       humanReview: true,
       fallback,
+      evidenceRole: "none",
+      research: research.summary,
     });
   }
 
-  const systemCitations = selected.map(citationFromChunk);
+  if (research.evidenceRole === "candidate") {
+    const limitations = [
+      copy.candidateEvidence,
+      "A single matching passage is enough to display. It is still not approved evidence and is not a ruling.",
+      ...searchNotes(translationMethod, detection.uncertain),
+    ];
+    if (websiteNote) limitations.push(websiteNote);
+    if (fallback) limitations.push("Machine translation into this language has not been validated. The message below is a fixed draft pending native-speaker review, with the English wording kept alongside it.");
+    return baseAnswer({
+      input,
+      madhhab,
+      detectionLanguage: detection.language,
+      detectionUncertain: detection.uncertain,
+      status: "human_review_required",
+      answer: copy.candidateEvidence,
+      citations: selected.map((chunk) => citationFromChunk(chunk, "candidate")),
+      variants,
+      translationMethod,
+      translationModel,
+      querySummary,
+      limitations,
+      highStakes,
+      disagreement: false,
+      semantic: "unavailable",
+      humanReview: true,
+      fallback,
+      evidenceRole: "candidate",
+      research: research.summary,
+    });
+  }
+
+  const systemCitations = selected.map((chunk) => citationFromChunk(chunk, "approved"));
   const chat = input.chat;
   if (!chat || !chat.available()) {
     return groundedFallback({
       input, madhhab, detection, variants, citations: systemCitations, translationMethod, translationModel, querySummary,
       highStakes, disagreement, fallback, reason: copy.generationUnavailable, uncertain: detection.uncertain,
+      extraLimitation: websiteNote ?? undefined, research: research.summary,
     });
   }
 
@@ -188,12 +232,14 @@ export async function answerQuestion(input: AnswerInput): Promise<PublicAnswer> 
       return groundedFallback({
         input, madhhab, detection, variants, citations: systemCitations, translationMethod, translationModel, querySummary,
         highStakes, disagreement, fallback, reason: copy.generationUnavailable, uncertain: detection.uncertain,
+        extraLimitation: websiteNote ?? undefined, research: research.summary,
       });
     }
     return groundedFallback({
       input, madhhab, detection, variants, citations: systemCitations, translationMethod, translationModel, querySummary,
       highStakes, disagreement, fallback, reason: "The language provider failed. No ruling is issued.",
-      extraLimitation: "AI_PROVIDER_ERROR", uncertain: detection.uncertain,
+      extraLimitation: websiteNote ? `AI_PROVIDER_ERROR. ${websiteNote}` : "AI_PROVIDER_ERROR", uncertain: detection.uncertain,
+      research: research.summary,
     });
   }
 
@@ -204,6 +250,7 @@ export async function answerQuestion(input: AnswerInput): Promise<PublicAnswer> 
       highStakes, disagreement, fallback,
       reason: "The generated text did not pass citation checks, so it is not shown.",
       extraLimitation: validated.reason, uncertain: detection.uncertain,
+      research: research.summary,
     });
   }
 
@@ -214,6 +261,7 @@ export async function answerQuestion(input: AnswerInput): Promise<PublicAnswer> 
       reason: disagreement
         ? "Indexed passages do not agree. No single ruling is selected."
         : "This question depends on circumstances this service does not have. No ruling is issued.",
+      research: research.summary,
     });
   }
 
@@ -236,6 +284,8 @@ export async function answerQuestion(input: AnswerInput): Promise<PublicAnswer> 
     humanReview: false,
     uncertainties: validated.uncertainties,
     fallback,
+    evidenceRole: "approved",
+    research: research.summary,
   });
 }
 
@@ -254,6 +304,7 @@ function groundedFallback(args: {
   reason: string;
   uncertain: boolean;
   extraLimitation?: string;
+  research?: ResearchSummary;
 }): PublicAnswer {
   const limitations = [args.reason, ...sharedLimitations(args.fallback, args.disagreement, args.highStakes), ...searchNotes(args.translationMethod, args.uncertain)];
   if (args.extraLimitation) limitations.push(args.extraLimitation);
@@ -275,6 +326,8 @@ function groundedFallback(args: {
     semantic: "unavailable",
     humanReview: true,
     fallback: args.fallback,
+    evidenceRole: "approved",
+    research: args.research,
   });
 }
 
@@ -301,7 +354,7 @@ function sharedLimitations(fallback: boolean, disagreement: boolean, highStakes:
   return limitations;
 }
 
-function citationFromChunk(chunk: StoredChunk): PublicCitation {
+function citationFromChunk(chunk: StoredChunk, evidenceRole: "approved" | "candidate" = "approved"): PublicCitation {
   const excerpt = chunk.originalText.slice(0, 280);
   return {
     sourceId: chunk.id,
@@ -322,6 +375,7 @@ function citationFromChunk(chunk: StoredChunk): PublicCitation {
     verificationStatus: chunk.verificationStatus,
     opinionLabels: chunk.opinionLabels,
     testFixture: chunk.isTestFixture,
+    evidenceRole,
     ...(chunk.provenance
       ? {
         provenance: {
@@ -372,7 +426,7 @@ function validateModelAnswer(raw: string, chunks: StoredChunk[], madhhab: Madhha
     const fatwaClaim = result.data.answer.match(/fatwa\s*(?:no\.?|number|#)?\s*(\d+)/i);
     if (fatwaClaim && fatwaClaim[1] !== chunk.fatwaNumber) return { ok: false, reason: "FABRICATED_FATWA_NUMBER" };
     citations.push({
-      ...citationFromChunk(chunk),
+      ...citationFromChunk(chunk, "approved"),
       originalExcerpt: citation.originalExcerpt,
     });
   }
@@ -400,6 +454,8 @@ function baseAnswer(args: {
   uncertainties?: string[];
   fallback?: boolean;
   candidates?: string[];
+  evidenceRole?: PublicAnswer["evidenceRole"];
+  research?: ResearchSummary;
 }): PublicAnswer {
   const copy = getCopy(args.input.answerLocale);
   return {
@@ -410,7 +466,11 @@ function baseAnswer(args: {
     madhhab: args.madhhab,
     answerStatus: args.status,
     answer: args.answer,
-    evidenceSummary: args.citations.length === 0 ? "No approved passage was available." : `${args.citations.length} passage(s) from the selected madhhab.`,
+    evidenceSummary: args.citations.length === 0
+      ? "No matching passage was available."
+      : args.evidenceRole === "candidate"
+        ? `${args.citations.length} labelled candidate passage(s). Not approved evidence.`
+        : `${args.citations.length} passage(s) from the selected madhhab.`,
     citations: args.citations,
     uncertainties: args.uncertainties ?? [],
     humanReviewRecommended: args.humanReview,
@@ -419,7 +479,7 @@ function baseAnswer(args: {
     promptVersion: PROMPT_VERSION,
     notAMufti: true,
     nativeReview: copy.nativeReview,
-    canonicalEnglish: copy.canonicalEnglish,
+    canonicalEnglish: args.evidenceRole === "candidate" ? (args.fallback ? CANDIDATE_EVIDENCE_EN : null) : copy.canonicalEnglish,
     translationMethod: args.translationMethod,
     translationModel: args.translationModel ?? null,
     translationFallback: args.fallback === true,
@@ -431,5 +491,7 @@ function baseAnswer(args: {
     unresolvedDisagreement: args.disagreement,
     candidates: args.candidates,
     querySummary: args.querySummary,
+    evidenceRole: args.evidenceRole ?? (args.citations.length === 0 ? "none" : "approved"),
+    research: args.research,
   };
 }

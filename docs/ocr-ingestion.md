@@ -215,6 +215,13 @@ Two files were added to the books folder. Neither changes the searchable count, 
 - It is an abridged summary of the Mahomedy translation (it quotes the publisher's note dated 12 November 1993) and ends with "(End of extracted clean data for initial sections. Cursor can now easily read and search these rules.)". It is a machine-produced partial paraphrase with no page references.
 - It cannot be used as evidence (not source text, no provenance, translation copyright) and cannot be used as a calibration reference (a reference must be a human transcription of a specific PDF page). The ingestion scripts only read `.pdf` files, so it is ignored by them. It is not registered as a book file.
 
+## Candidate discovery (27 October 2026, midday)
+
+`ocr:index` without `--approve` now stores unmeasured OCR as labelled candidate chunks (`searchable: false`). They can appear in an answer so a single match is not hidden. They cannot support a ruling. Thresholds were not changed.
+
+- al-qaduri: 72 candidate chunks from 36 OCR pages. searchable: false. Verdict: unmeasured.
+- bahishti-zewar-en (config `17c7599d09b7`, English): 19 candidate chunks from 12 OCR pages. searchable: false. Verdict: unmeasured.
+
 ## Real-book retrieval evaluation
 
 `npm run eval:real-book -- [--madhhab hanafi] [--book <title part>]` runs five English/Urdu/Arabic question triplets against approved chunks only and writes a JSON report to `.data/eval/`. It reports `NOT MEASURABLE` while the approved index is empty, which is the current state.

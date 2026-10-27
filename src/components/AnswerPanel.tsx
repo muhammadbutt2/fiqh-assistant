@@ -37,6 +37,7 @@ export function AnswerPanel({ answer, onFeedback }: { answer: PublicAnswer; onFe
       <p>{answer.madhhab}</p>
       <h3>Evidence</h3>
       <p>{answer.evidenceSummary}</p>
+      {answer.evidenceRole === "candidate" ? <p className="alert" role="status">The excerpt below was retrieved. It is not approved evidence and is not a ruling.</p> : null}
       {answer.citations.length === 0 ? <p>No citation is available.</p> : null}
       {answer.citations.map((citation) => {
         const sourceDir = directionFor(citation.language);
@@ -44,7 +45,7 @@ export function AnswerPanel({ answer, onFeedback }: { answer: PublicAnswer; onFe
         return (
           <section className="citation" key={citation.sourceId}>
             <h3>{citation.title}</h3>
-            <p className="meta" lang="en" dir="ltr">{citation.author} · {citation.sourceType} · {citation.verificationStatus}{citation.provenance ? ` · OCR accuracy ${citation.provenance.ocrAccuracy}` : ""}{citation.testFixture ? " · test fixture" : ""}</p>
+            <p className="meta" lang="en" dir="ltr">{citation.author} · {citation.sourceType} · {citation.verificationStatus} · {citation.evidenceRole}{citation.provenance ? ` · OCR accuracy ${citation.provenance.ocrAccuracy}` : ""}{citation.testFixture ? " · test fixture" : ""}</p>
             {citation.opinionLabels.length > 0 ? <p>Labelled opinions: {citation.opinionLabels.map((item) => `${item.madhhab}: ${item.label}`).join("; ")}</p> : null}
             <details open>
               <summary>{strings.originalExcerpt}</summary>
