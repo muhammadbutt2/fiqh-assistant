@@ -38,7 +38,8 @@ describe("detection and retrieval", () => {
     expect(vocalised).toContain("\u064E");
     const variants = buildVariants(ROMAN, detection);
     expect(variants.method).toBe("glossary_terms_only");
-    expect(variants.variants.some((item) => item.kind === "glossary" && item.text.includes("تشهد"))).toBe(true);
+    expect(variants.variants.some((item) => item.language === "ar" && item.text.includes("تشهد"))).toBe(true);
+    expect(variants.variants.some((item) => item.language === "ur" && item.text.includes("تشہد"))).toBe(true);
   });
 
   it("keeps wrong-school, unapproved, poor OCR, restricted, and fixture rows out of production search", () => {
@@ -85,6 +86,24 @@ describe("answer pipeline", () => {
     expect(answer.humanReviewRecommended).toBe(false);
     expect(answer.citations[0]?.originalExcerpt).toBe(chunk.originalText);
     expect(answer.notAMufti).toBe(true);
+  });
+
+  it("searches Arabic and Urdu terms when the question language is uncertain", async () => {
+    const chunk = fixture({ id: "ar-namaz", madhhab: "hanafi", originalText: "TEST FIXTURE صلاة الفجر", isTestFixture: false });
+    const answer = await answerQuestion({
+      madhhab: "hanafi",
+      answerLocale: "ur",
+      question: "namaz",
+      chunks: [chunk],
+      chat: unavailableChat(),
+    });
+    expect(answer.detectedQueryLanguage).not.toBe("needs_clarification");
+    expect(answer.answerStatus).not.toBe("needs_clarification");
+    expect(answer.detectionUncertain).toBe(true);
+    expect(answer.retrievalLanguages).toEqual(expect.arrayContaining(["ar", "ur"]));
+    expect(answer.sourceIds).toContain("ar-namaz");
+    expect(answer.preferredAnswerLanguage).toBe("ur");
+    expect(answer.limitations.join(" ")).toContain("Arabic and Urdu");
   });
 
   it("returns the exact English no-evidence sentence for an empty library", async () => {

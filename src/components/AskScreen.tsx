@@ -103,7 +103,7 @@ export function AskScreen({ ask = defaultAsk }: { ask?: (body: unknown, signal: 
         <button type="button" className="secondary" onClick={() => controller?.abort()} disabled={!loading}>Cancel</button>
         <button type="button" className="secondary" onClick={() => void submit()} disabled={!error && !answer}>Retry</button>
       </div>
-      {loading ? <p role="status">Searching approved sources for the selected school.</p> : null}
+      {loading ? <p role="status">Translating the question into Arabic and Urdu, then searching the selected school.</p> : null}
       {error ? <p className="alert" role="alert">{error}</p> : null}
       {!madhhab ? <p role="status">Select a school before asking.</p> : null}
       {answer ? <AnswerPanel answer={answer} onFeedback={(kind) => { void fetch("/api/feedback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ answerId: answer.id, kind }) }); }} /> : null}

@@ -11,6 +11,7 @@ export function AnswerPanel({ answer, onFeedback }: { answer: PublicAnswer; onFe
     <article className={`answer ${font ?? ""}`} lang={locale?.bcp47 ?? answer.preferredAnswerLanguage} dir={direction} aria-live="polite">
       <p className="status">{answer.notAMufti ? "This is an AI-assisted research service, not a mufti, and not a substitute for qualified scholarly judgment." : null}</p>
       <h2>Answer</h2>
+      <p className="meta">Searched Arabic and Urdu sources for the selected school. This reply is in your selected language. A quotation stays in the language of the book.</p>
       <p>{answer.answer}</p>
       {answer.nativeReview === "pending" && answer.canonicalEnglish ? (
         <details>

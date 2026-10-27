@@ -134,13 +134,22 @@ export function buildVariants(question: string, detection: Detection): { variant
     { id: "normalized", kind: "normalized", language: detection.language, text: normalizeForSearch(question), method: "unicode_search_normalization", model: null },
   ];
   if (hits.length > 0) {
-    const arabic = hits.map((hit) => hit.arabic).join(" ");
+    const arabic = hits.map((hit) => hit.preferred.ar ?? hit.arabic).join(" ");
+    const urdu = hits.map((hit) => hit.preferred.ur ?? hit.arabic).join(" ");
     const english = hits.map((hit) => hit.preferred.en ?? hit.transliteration).join(" ");
     variants.push({
       id: "glossary-ar",
       kind: "glossary",
       language: "ar",
       text: `${normalizeForSearch(question)} ${arabic}`,
+      method: "glossary_terms_only",
+      model: null,
+    });
+    variants.push({
+      id: "glossary-ur",
+      kind: "glossary",
+      language: "ur",
+      text: `${normalizeForSearch(question)} ${urdu}`,
       method: "glossary_terms_only",
       model: null,
     });

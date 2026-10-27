@@ -65,33 +65,13 @@ export async function answerQuestion(input: AnswerInput): Promise<PublicAnswer> 
     ? { language: input.queryLanguage, script: "Zyyy", mixed: false, uncertain: false, candidates: [input.queryLanguage], romanUrdu: input.queryLanguage === "ur-Latn", signals: ["user-confirmed"] }
     : detectLanguage(input.question);
 
-  if (detection.uncertain && !input.acceptUncertainDetection) {
-    return baseAnswer({
-      input,
-      madhhab,
-      detectionLanguage: detection.language,
-      detectionUncertain: true,
-      status: "needs_clarification",
-      answer: "The language of the question is not certain. Confirm it, or resend with the question language, before a search is treated as reliable.",
-      citations: [],
-      variants: [],
-      translationMethod: "not_run",
-      limitations: ["Detection was not confident, so retrieval did not run."],
-      highStakes: isHighStakes(input.question),
-      disagreement: false,
-      semantic: "unavailable",
-      candidates: detection.candidates,
-      humanReview: false,
-    });
-  }
-
   const built = buildVariants(input.question, detection);
   const variants = built.variants;
   let translationMethod = built.method;
   let translationModel: string | null = null;
   if (input.translator?.available()) {
     try {
-      const translated = await input.translator.translate(input.question, ["ar", "ur", "en"], input.signal);
+      const translated = await input.translator.translate(input.question, ["ar", "ur"], input.signal);
       translated.forEach((item, index) => {
         variants.push({ id: `translation-${index}`, kind: "translation", language: item.language, text: item.text, method: "provider", model: item.model });
       });
@@ -118,7 +98,8 @@ export async function answerQuestion(input: AnswerInput): Promise<PublicAnswer> 
 
   if (selected.length === 0) {
     const limitations = [
-      input.libraryEmpty ? "The library is not populated. No book or fatwa has been approved for search." : "No approved passage in this madhhab matched the question.",
+      input.libraryEmpty ? "The library is not populated. No book or fatwa has been approved for search." : "No approved passage in this madhhab matched the Arabic and Urdu search.",
+      ...searchNotes(translationMethod, detection.uncertain),
     ];
     if (fallback) limitations.push("Machine translation into this language has not been validated. The message below is a fixed draft pending native-speaker review, with the English wording kept alongside it.");
     return baseAnswer({
@@ -146,7 +127,7 @@ export async function answerQuestion(input: AnswerInput): Promise<PublicAnswer> 
   if (!chat || !chat.available()) {
     return groundedFallback({
       input, madhhab, detection, variants, citations: systemCitations, translationMethod, translationModel,
-      highStakes, disagreement, fallback, reason: copy.generationUnavailable,
+      highStakes, disagreement, fallback, reason: copy.generationUnavailable, uncertain: detection.uncertain,
     });
   }
 
@@ -182,13 +163,13 @@ export async function answerQuestion(input: AnswerInput): Promise<PublicAnswer> 
     if (error instanceof AiNotConfiguredError || (error instanceof Error && error.message === "AI_NOT_CONFIGURED")) {
       return groundedFallback({
         input, madhhab, detection, variants, citations: systemCitations, translationMethod, translationModel,
-        highStakes, disagreement, fallback, reason: copy.generationUnavailable,
+        highStakes, disagreement, fallback, reason: copy.generationUnavailable, uncertain: detection.uncertain,
       });
     }
     return groundedFallback({
       input, madhhab, detection, variants, citations: systemCitations, translationMethod, translationModel,
       highStakes, disagreement, fallback, reason: "The language provider failed. No ruling is issued.",
-      extraLimitation: "AI_PROVIDER_ERROR",
+      extraLimitation: "AI_PROVIDER_ERROR", uncertain: detection.uncertain,
     });
   }
 
@@ -198,14 +179,14 @@ export async function answerQuestion(input: AnswerInput): Promise<PublicAnswer> 
       input, madhhab, detection, variants, citations: systemCitations, translationMethod, translationModel,
       highStakes, disagreement, fallback,
       reason: "The generated text did not pass citation checks, so it is not shown.",
-      extraLimitation: validated.reason,
+      extraLimitation: validated.reason, uncertain: detection.uncertain,
     });
   }
 
   if (highStakes || disagreement) {
     return groundedFallback({
       input, madhhab, detection, variants, citations: systemCitations, translationMethod, translationModel,
-      highStakes, disagreement, fallback,
+      highStakes, disagreement, fallback, uncertain: detection.uncertain,
       reason: disagreement
         ? "Indexed passages do not agree. No single ruling is selected."
         : "This question depends on circumstances this service does not have. No ruling is issued.",
@@ -223,7 +204,7 @@ export async function answerQuestion(input: AnswerInput): Promise<PublicAnswer> 
     variants,
     translationMethod,
     translationModel,
-    limitations: sharedLimitations(fallback, false, false),
+    limitations: [...sharedLimitations(fallback, false, false), ...searchNotes(translationMethod, detection.uncertain)],
     highStakes,
     disagreement,
     semantic: "unavailable",
@@ -245,9 +226,10 @@ function groundedFallback(args: {
   disagreement: boolean;
   fallback: boolean;
   reason: string;
+  uncertain: boolean;
   extraLimitation?: string;
 }): PublicAnswer {
-  const limitations = [args.reason, ...sharedLimitations(args.fallback, args.disagreement, args.highStakes)];
+  const limitations = [args.reason, ...sharedLimitations(args.fallback, args.disagreement, args.highStakes), ...searchNotes(args.translationMethod, args.uncertain)];
   if (args.extraLimitation) limitations.push(args.extraLimitation);
   return baseAnswer({
     input: args.input,
@@ -267,6 +249,21 @@ function groundedFallback(args: {
     humanReview: true,
     fallback: args.fallback,
   });
+}
+
+function searchNotes(translationMethod: string, uncertain: boolean): string[] {
+  const notes: string[] = [];
+  if (uncertain) notes.push("The language of the question was not certain. The search still ran.");
+  if (translationMethod === "provider") {
+    notes.push("The question was translated into Arabic and Urdu for the book search. This reply is in the selected language. Quotations stay in the source language.");
+  } else if (translationMethod === "provider_failed") {
+    notes.push("Arabic and Urdu translation failed. The search used the original wording and glossary terms. This reply is in the selected language.");
+  } else if (translationMethod === "glossary_terms_only") {
+    notes.push("The question was searched in the original wording and with Arabic and Urdu glossary terms. A translation model is not configured, so the whole sentence was not translated. This reply is in the selected language.");
+  } else {
+    notes.push("No Arabic or Urdu glossary term was recognized, and a translation model is not configured, so the whole sentence was not translated. This reply is in the selected language.");
+  }
+  return notes;
 }
 
 function sharedLimitations(fallback: boolean, disagreement: boolean, highStakes: boolean): string[] {
