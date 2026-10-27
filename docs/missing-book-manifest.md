@@ -55,3 +55,15 @@ Shafi'i: Al-Umm, Al-Majmu', Minhaj al-Talibin, Mughni al-Muhtaj, Tuhfat al-Muhta
 Hanbali: Al-Mughni, Al-Insaf, Kashshaf al-Qina', Sharh Muntaha al-Iradat, Zad al-Mustaqni', Umdat al-Fiqh, Al-Rawd al-Murbi'.
 
 No download was invented for any of them.
+
+## Update 2026-10-27: local approval run
+
+At the owner's instruction the 15 distinct local Hanafi PDFs were run through `scripts/ingest-local-books.ts`. None became searchable.
+
+- 14 are image scans with no text layer (0 characters extracted). They are stored with ocrStatus `needs_ocr` and need an OCR engine plus a measured accuracy check.
+- The Bahishti Zewar PDF has a text layer, but the text is garbled and not usable for retrieval.
+- `alhadayah5.pdf` is byte-identical to another file and was skipped.
+
+The only text indexed is the archive.org text of Minhaj al-Talibin (Shafi'i), added with `scripts/ingest-open-text.ts`. Its rights evidence is the uploader's Public Domain Mark. It is archive.org OCR of a 2005 edition, so accuracy is unmeasured and it contains editor material. The review note on the document says so.
+
+No book text was written or generated. The titles listed above remain missing.
