@@ -17,7 +17,7 @@ Copy `.env.example` to `.env`. Placeholders only:
 | Variable | Role |
 | --- | --- |
 | `DATABASE_URL` | Postgres. Local Compose default is `postgresql://fiqh:fiqh-local-only@localhost:5432/fiqh`. Omit it to use the JSON file store. |
-| `AUTH_SECRET` | HMAC key for the `fiqh_session` cookie. Empty means account and admin routes return 503. |
+| `AUTH_SECRET` | HMAC key for the `fiqh_session` cookie. If it is empty, the server writes a random secret to `.data/auth-secret` so local accounts work. That file is gitignored. Admin routes still return 503 until `ADMIN_PASSWORD` is set. |
 | `ADMIN_PASSWORD` | Admin password. Empty keeps the admin closed. |
 | `AI_API_KEY`, `AI_BASE_URL`, `AI_CHAT_MODEL` | OpenAI-compatible chat. Empty key means no generated ruling. |
 | `AI_EMBEDDING_MODEL` | Recorded for a future embedder. No embedding calls are made. |

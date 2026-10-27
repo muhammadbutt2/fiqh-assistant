@@ -29,7 +29,7 @@ npm run build
 npm start
 ```
 
-Leave `AI_API_KEY`, `AUTH_SECRET`, and `ADMIN_PASSWORD` empty unless you are configuring them yourself. Do not commit `.env`, PDFs, or the `.data` directory.
+Leave `AI_API_KEY` and `ADMIN_PASSWORD` empty unless you are configuring them yourself. An empty `AUTH_SECRET` is filled from `.data/auth-secret` on the local server. Do not commit `.env`, PDFs, or the `.data` directory.
 
 `npm run db:seed` exits with an error when `DATABASE_URL` is unset. That is intentional.
 

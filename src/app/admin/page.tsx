@@ -15,7 +15,7 @@ export default function AdminPage() {
     const response = await fetch("/api/admin/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }) });
     const payload = await response.json();
     if (!response.ok) {
-      setError(payload.error ?? "UNAUTHENTICATED");
+      setError(payload.error === "ADMIN_NOT_CONFIGURED" ? "Admin sign-in is turned off until ADMIN_PASSWORD is set in .env and the server is restarted." : payload.error ?? "UNAUTHENTICATED");
       return;
     }
     await refresh();
@@ -25,7 +25,7 @@ export default function AdminPage() {
     const response = await fetch("/api/admin/stats");
     const payload = await response.json();
     if (!response.ok) {
-      setError(payload.error ?? "UNAUTHENTICATED");
+      setError(payload.error === "ADMIN_NOT_CONFIGURED" ? "Admin sign-in is turned off until ADMIN_PASSWORD is set in .env and the server is restarted." : payload.error ?? "UNAUTHENTICATED");
       setStats(null);
       return;
     }

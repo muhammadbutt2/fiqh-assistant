@@ -1,4 +1,8 @@
+import { mkdtempSync } from "fs";
+import { tmpdir } from "os";
+import path from "path";
 import { describe, expect, it } from "vitest";
+import { resolveAuthSecret } from "@/server/runtime";
 import { listLanguages, listLocales, SPEAKER_RANKING } from "@/data/languages";
 import { getCopy, messageLocales, NO_EVIDENCE_EN } from "@/data/messages";
 import { INSTITUTIONS, LOCAL_BOOK_FILES } from "@/data/sources";
@@ -50,6 +54,15 @@ describe("schools and languages", () => {
       }
       if (["en", "es", "fr"].includes(locale.localeId)) expect(locale.direction).toBe("ltr");
     }
+  });
+
+  it("keeps a local account secret when AUTH_SECRET is empty", () => {
+    const file = path.join(mkdtempSync(path.join(tmpdir(), "fiqh-auth-")), "auth-secret");
+    const first = resolveAuthSecret("", file);
+    const second = resolveAuthSecret(undefined, file);
+    expect(first.length).toBeGreaterThanOrEqual(32);
+    expect(second).toBe(first);
+    expect(resolveAuthSecret("explicit-secret-value", file)).toBe("explicit-secret-value");
   });
 
   it("does not put any institution in a trusted retrieval pool", () => {

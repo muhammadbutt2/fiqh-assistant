@@ -80,13 +80,7 @@ h1 { font-size: clamp(2rem, 4vw, 3.3rem); margin: 0 0 0.75rem; }
 
 .card, .panel, .answer { padding: 1.1rem 1.2rem; }
 
-.card { text-align: start; width: 100%; cursor: pointer; background: var(--card); }
-
-.card[aria-pressed="true"] {
-  border-color: var(--cedar);
-  box-shadow: inset 0 0 0 1px var(--cedar);
-  background: #eef5f1;
-}
+.card { text-align: start; width: 100%; cursor: pointer; background: var(--card); color: var(--ink); }
 
 .arabic, .font-arabic { font-family: "Noto Naskh Arabic", "Traditional Arabic", serif; }
 
@@ -110,7 +104,37 @@ button.secondary, .button.secondary {
   border: 1px solid var(--line);
 }
 
+button.card {
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 1.1rem 1.2rem;
+  font-weight: 400;
+}
+
+button.card strong,
+button.card p,
+button.card .arabic { color: var(--ink); }
+
+button.card[aria-pressed="true"] {
+  border-color: var(--cedar);
+  box-shadow: inset 0 0 0 3px var(--cedar);
+  background: #e7f2ec;
+}
+
+button.card[aria-pressed="true"]::after {
+  content: "Selected";
+  display: block;
+  margin-top: 0.55rem;
+  color: var(--cedar-dark);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
 button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+form.panel { display: grid; gap: 0.9rem; }
 
 label { display: grid; gap: 0.35rem; font-weight: 600; }
 
@@ -140,8 +164,14 @@ textarea { min-height: 9rem; resize: vertical; }
   width: 100%;
   text-align: start;
   background: transparent;
-  color: inherit;
+  color: var(--ink);
   border-radius: 10px;
+}
+
+.listbox button[aria-selected="true"] {
+  background: #e7f2ec;
+  box-shadow: inset 0 0 0 2px var(--cedar);
+  color: var(--ink);
 }
 
 .steps { display: grid; gap: 1.5rem; margin: 1.5rem 0 3rem; }
