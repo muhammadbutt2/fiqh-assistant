@@ -108,7 +108,7 @@ export type PublicCitation = {
   verificationStatus: VerificationStatus;
   opinionLabels: OpinionLabel[];
   testFixture: boolean;
-  evidenceRole: "approved" | "candidate";
+  evidenceRole: "approved" | "institutional" | "candidate";
   provenance?: {
     extraction: ChunkProvenance["extraction"];
     ocrAccuracy: ChunkProvenance["accuracy"]["status"];
@@ -150,18 +150,19 @@ export type PublicAnswer = {
   /** How the question was turned into Arabic and Urdu search queries. Search aids, not rulings. */
   querySummary?: QuerySummary;
   /** Approved evidence, labelled candidate discovery, or nothing retrieved. */
-  evidenceRole?: "approved" | "candidate" | "none";
+  evidenceRole?: "approved" | "institutional" | "candidate" | "none";
   research?: ResearchSummary;
 };
 
 export type ResearchSummary = {
-  evidenceRole: "approved" | "candidate" | "none";
+  evidenceRole: "approved" | "institutional" | "candidate" | "none";
   approvedMatches: number;
   candidateMatches: number;
   neighborsAdded: number;
   approvedPool: number;
   candidatePool: number;
   websitesSearched: number;
+  websiteHits: number;
   websitesSkipped: { id: string; reason: string }[];
   searchMethods: string[];
 };

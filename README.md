@@ -14,9 +14,9 @@ The schools are Hanafi, Maliki, Shafi'i, and Hanbali. A question is searched onl
 - Upload, text extraction, chunking, and an OCR job that fails honestly when Tesseract is missing.
 - OpenAI-compatible chat and translation adapters. With no API key they stay unavailable. The service does not invent a ruling.
 - Citation checks for source id, exact excerpt, printed page, PDF page index, fatwa number, URL, and school.
-- Institutional registry and acquisition manifest. Nothing in that registry is approved for retrieval.
+- Institutional registry and acquisition manifest. Seed websites stay disabled. An admin live test can enable one domain after identity, terms, madhhab pool, and a successful page fetch. See [docs/website-retrieval.md](docs/website-retrieval.md).
 
-Details: [docs/implementation-report.md](docs/implementation-report.md), [docs/institutional-source-registry.md](docs/institutional-source-registry.md), [docs/missing-book-manifest.md](docs/missing-book-manifest.md), [docs/deployment.md](docs/deployment.md).
+Details: [docs/implementation-report.md](docs/implementation-report.md), [docs/institutional-source-registry.md](docs/institutional-source-registry.md), [docs/website-retrieval.md](docs/website-retrieval.md), [docs/missing-book-manifest.md](docs/missing-book-manifest.md), [docs/deployment.md](docs/deployment.md).
 
 ## Local setup
 

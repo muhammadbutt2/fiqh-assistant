@@ -7,6 +7,11 @@ import { uiStrings } from "@/data/messages";
 function reference(citation: PublicCitation): string {
   const parts = [citation.title];
   if (citation.author) parts.push(citation.author);
+  if (citation.sourceType === "institutional_fatwa" || citation.evidenceRole === "institutional") {
+    if (citation.chapter.length > 0) parts.push(citation.chapter.join(" › "));
+    if (citation.url) parts.push(citation.url);
+    return parts.join(" · ");
+  }
   if (citation.volume !== null) parts.push(`vol. ${citation.volume}`);
   if (citation.printedPages) parts.push(citation.printedPages.start === citation.printedPages.end ? `p. ${citation.printedPages.start}` : `pp. ${citation.printedPages.start}–${citation.printedPages.end}`);
   else parts.push(citation.pdfPages.start === citation.pdfPages.end ? `PDF page index ${citation.pdfPages.start}` : `PDF page index ${citation.pdfPages.start}–${citation.pdfPages.end}`);
@@ -38,6 +43,7 @@ export function AnswerPanel({ answer, onFeedback }: { answer: PublicAnswer; onFe
       <h3>Evidence</h3>
       <p>{answer.evidenceSummary}</p>
       {answer.evidenceRole === "candidate" ? <p className="alert" role="status">The excerpt below was retrieved. It is not approved evidence and is not a ruling.</p> : null}
+      {answer.evidenceRole === "institutional" ? <p className="alert" role="status">The excerpt below was retrieved from an approved institutional website. It is not a quotation from a classical fiqh book, and it is not a ruling from this service.</p> : null}
       {answer.citations.length === 0 ? <p>No citation is available.</p> : null}
       {answer.citations.map((citation) => {
         const sourceDir = directionFor(citation.language);

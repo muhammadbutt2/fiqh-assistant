@@ -61,7 +61,7 @@ Grok's consumer site is not used and not scraped. No paid API is required. Wheth
 
 1. Approved evidence (`selectChunks` / `chunkAllowed`): searchable, approved, verified, rights approved, OCR `not_needed` or `acceptable` with a passed accuracy measurement, selected madhhab (or a comparative source labelled for it). A single matching passage is enough to display. Neighbouring PDF pages from the same book are added for context.
 2. If none: labelled candidate discovery (`selectCandidateChunks`): unmeasured OCR or pending-review text in the same madhhab. Shown to the user with a warning. Never used to generate a ruling. Calibration thresholds were not lowered.
-3. Approved institutional websites: planned in `src/server/websites.ts`. Every current record has `retrievalAllowed: false`, so nothing is fetched. A homepage check is not a licence. Off-domain URLs are refused.
+3. Approved institutional websites (`src/server/websites.ts`): searched only when local approved book evidence is empty, and only for institutions with `retrievalAllowed: true` after an admin live test. Seed records stay disabled. Off-domain and off-path URLs are refused. A search snippet is not evidence. Institutional pages are labelled as such and are not quotations from a classical book. See `docs/website-retrieval.md`.
 
 Semantic embeddings are not configured and `semanticRetrieval` stays `unavailable`.
 

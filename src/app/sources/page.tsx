@@ -11,7 +11,8 @@ export default function SourcesPage() {
           <h3>{item.officialName}</h3>
           <p><a href={item.homepage}>{item.homepage}</a></p>
           <p>{item.methodology}</p>
-          <p className="meta">Methodology status: {item.methodologyStatus}. Retrieval allowed: no. Review: {item.reviewStatus}.</p>
+          <p className="meta">Methodology status: {item.methodologyStatus}. Identity: {item.reviewStatus}. Terms: {item.termsReviewStatus ?? "unreviewed"}. Method: {item.retrievalMethod ?? "none"}. Retrieval allowed: {item.retrievalAllowed ? "yes" : "no"} (seed; runtime enablement is admin-only).</p>
+          {(item.pathAllowlist?.length ?? 0) > 0 ? <p className="meta">Permitted paths: {item.pathAllowlist?.join(", ")}</p> : null}
           <p>{item.accessibility}</p>
         </article>
       ))}

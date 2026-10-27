@@ -72,7 +72,7 @@ Uploads are stored under `STORAGE_DIR` with a random id filename. Printed page n
 ## 5. What stays closed
 
 - Admin review cannot mark a document approved without a verification note, methodology, and check date.
-- An institution cannot be added to a trusted pool without the same kind of note. `retrievalAllowed` stays false.
+- An institution cannot be added to a trusted pool without a methodology note, check date, and reviewer note. `retrievalAllowed` stays false in the seed. Enabling one website also requires terms review, a dedicated test question, and a live page fetch.
 - Test fixtures are excluded unless a test passes `allowTestFixtures`. HTTP handlers never do.
 - High-stakes questions and disagreeing passages return `human_review_required`. The response says no review has taken place.
 

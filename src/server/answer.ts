@@ -65,6 +65,8 @@ export type AnswerInput = {
   chat?: ChatClient | null;
   translator?: Translator | null;
   signal?: AbortSignal;
+  fetchImpl?: typeof fetch;
+  searchWebsites?: boolean;
 };
 
 export function systemPrompt(madhhab: Madhhab, locale: string): string {
@@ -111,14 +113,18 @@ export async function answerQuestion(input: AnswerInput): Promise<PublicAnswer> 
     variants,
     allowTestFixtures: input.allowTestFixtures === true,
     institutions: input.institutions ?? INSTITUTIONS,
+    fetchImpl: input.fetchImpl,
+    searchWebsites: input.searchWebsites,
   });
   const selected = research.selected;
   const disagreement = hasUnresolvedDisagreement(selected);
   const highStakes = processed.highStakes;
   const fallback = copy.locale.machineTranslation !== "not_required";
-  const websiteNote = research.websites.skipped.length > 0
-    ? `Approved institutional websites were not used as evidence (${research.websites.skipped.length} domain(s) skipped; none have retrievalAllowed).`
-    : null;
+  const websiteNote = research.websites.searched.length > 0
+    ? `Searched ${research.websites.searched.length} approved website(s); retrieved ${research.websites.hits.length} page(s). Institutional fatwas are not quotations from classical books.`
+    : research.websites.skipped.length > 0
+      ? `Approved institutional websites were not used as evidence (${research.websites.skipped.length} domain(s) skipped).`
+      : null;
 
   if (research.evidenceRole === "none") {
     const limitations = [
@@ -147,6 +153,19 @@ export async function answerQuestion(input: AnswerInput): Promise<PublicAnswer> 
       fallback,
       evidenceRole: "none",
       research: research.summary,
+    });
+  }
+
+  if (research.evidenceRole === "institutional") {
+    const systemCitations = selected.map((chunk) => citationFromChunk(chunk, "institutional"));
+    return groundedFallback({
+      input, madhhab, detection, variants, citations: systemCitations, translationMethod, translationModel, querySummary,
+      highStakes, disagreement: false, fallback,
+      reason: "Retrieved from an approved institutional website. These are institutional fatwas or articles, not quotations from a classical fiqh book. No ruling is issued.",
+      uncertain: detection.uncertain,
+      extraLimitation: websiteNote ?? undefined,
+      research: research.summary,
+      evidenceRole: "institutional",
     });
   }
 
@@ -305,6 +324,7 @@ function groundedFallback(args: {
   uncertain: boolean;
   extraLimitation?: string;
   research?: ResearchSummary;
+  evidenceRole?: PublicAnswer["evidenceRole"];
 }): PublicAnswer {
   const limitations = [args.reason, ...sharedLimitations(args.fallback, args.disagreement, args.highStakes), ...searchNotes(args.translationMethod, args.uncertain)];
   if (args.extraLimitation) limitations.push(args.extraLimitation);
@@ -326,7 +346,7 @@ function groundedFallback(args: {
     semantic: "unavailable",
     humanReview: true,
     fallback: args.fallback,
-    evidenceRole: "approved",
+    evidenceRole: args.evidenceRole ?? "approved",
     research: args.research,
   });
 }
@@ -354,7 +374,7 @@ function sharedLimitations(fallback: boolean, disagreement: boolean, highStakes:
   return limitations;
 }
 
-function citationFromChunk(chunk: StoredChunk, evidenceRole: "approved" | "candidate" = "approved"): PublicCitation {
+function citationFromChunk(chunk: StoredChunk, evidenceRole: "approved" | "institutional" | "candidate" = "approved"): PublicCitation {
   const excerpt = chunk.originalText.slice(0, 280);
   return {
     sourceId: chunk.id,
@@ -426,7 +446,7 @@ function validateModelAnswer(raw: string, chunks: StoredChunk[], madhhab: Madhha
     const fatwaClaim = result.data.answer.match(/fatwa\s*(?:no\.?|number|#)?\s*(\d+)/i);
     if (fatwaClaim && fatwaClaim[1] !== chunk.fatwaNumber) return { ok: false, reason: "FABRICATED_FATWA_NUMBER" };
     citations.push({
-      ...citationFromChunk(chunk, "approved"),
+      ...citationFromChunk(chunk, chunk.sourceClass === "institutional_fatwa" ? "institutional" : "approved"),
       originalExcerpt: citation.originalExcerpt,
     });
   }
@@ -470,7 +490,9 @@ function baseAnswer(args: {
       ? "No matching passage was available."
       : args.evidenceRole === "candidate"
         ? `${args.citations.length} labelled candidate passage(s). Not approved evidence.`
-        : `${args.citations.length} passage(s) from the selected madhhab.`,
+        : args.evidenceRole === "institutional"
+          ? `${args.citations.length} institutional page(s) retrieved from an approved website.`
+          : `${args.citations.length} passage(s) from the selected madhhab.`,
     citations: args.citations,
     uncertainties: args.uncertainties ?? [],
     humanReviewRecommended: args.humanReview,

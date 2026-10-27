@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import path from "path";
-import { EXPECTED_WORKS, INSTITUTIONS, LOCAL_BOOK_FILES, QUDURI_CATALOGUE_CANDIDATES, statusForWork } from "@/data/sources";
+import { EXPECTED_WORKS, INSTITUTIONS, LOCAL_BOOK_FILES, QUDURI_CATALOGUE_CANDIDATES, mergeInstitution, statusForWork } from "@/data/sources";
 // statusForWork is the operative acquisition status. The static work list stays descriptive.
 import type { Madhhab } from "@/server/madhhab";
 import type { PublicAnswer, StoredChunk } from "@/server/types";
@@ -226,13 +226,20 @@ export function createMemoryStore(persistPath?: string): Store {
       save();
     },
     async listAudits() { return state.audits; },
-    async listInstitutions() { return state.institutions; },
+    async listInstitutions() {
+      return INSTITUTIONS.map((seed) => mergeInstitution(seed, state.institutions.find((item) => item.id === seed.id)));
+    },
     async updateInstitution(id, patch) {
-      const current = state.institutions.find((item) => item.id === id);
-      if (!current) throw new Error("NOT_FOUND");
+      let current = state.institutions.find((item) => item.id === id);
+      const seed = INSTITUTIONS.find((item) => item.id === id);
+      if (!current) {
+        if (!seed) throw new Error("NOT_FOUND");
+        current = { ...seed };
+        state.institutions.push(current);
+      }
       Object.assign(current, patch);
       save();
-      return current;
+      return mergeInstitution(seed ?? current, current);
     },
     async listAcquisitions() { return state.acquisitions.map((item) => ({
       ...item,

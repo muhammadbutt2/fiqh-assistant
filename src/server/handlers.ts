@@ -2,9 +2,12 @@ import { createHash, randomUUID } from "crypto";
 import { z } from "zod";
 import { defaultAnswerLocale, isSupportedLanguage, listLocales } from "@/data/languages";
 import { detectLanguage } from "@/server/detect";
-import { INSTITUTIONS } from "@/data/sources";
+import { INSTITUTIONS, normalizeInstitution } from "@/data/sources";
 import { answerQuestion } from "@/server/answer";
 import { diagnoseRetrieval } from "@/server/diagnose";
+import { processQuestion } from "@/server/query";
+import { checkPermittedPage } from "@/server/source-check";
+import { retrievalTestRecord, trialSearchInstitution } from "@/server/websites";
 import type { ChatClient, Translator } from "@/server/ai";
 import { applyReview, processJob, processQueuedJobs, storeUpload } from "@/server/ingest";
 import { MADHHABS, parseMadhhab } from "@/server/madhhab";
@@ -376,6 +379,8 @@ export async function postInstitutionReview(request: Request, deps: AppDeps): Pr
     checkedOn: z.string().optional(),
     methodology: z.string().optional(),
     retrievalAllowed: z.boolean().optional(),
+    testQuestion: z.string().min(1).max(4000).optional(),
+    termsReviewStatus: z.enum(["unreviewed", "reviewed_query_time_link", "rejected"]).optional(),
   }).safeParse(await request.json().catch(() => null));
   if (!body.success) return json({ error: "INVALID_REQUEST" }, 400);
   const needsReview = (body.data.trustedPool?.length ?? 0) > 0 || body.data.retrievalAllowed === true;
@@ -384,14 +389,88 @@ export async function postInstitutionReview(request: Request, deps: AppDeps): Pr
   }
   const current = (await deps.store.listInstitutions()).find((item) => item.id === body.data.id) ?? INSTITUTIONS.find((item) => item.id === body.data.id);
   if (!current) return json({ error: "NOT_FOUND" }, 404);
+  const trustedPool = body.data.trustedPool ?? current.trustedPool;
+  const termsReviewStatus = body.data.termsReviewStatus ?? current.termsReviewStatus ?? "unreviewed";
+  let lastRetrievalTest = current.lastRetrievalTest ?? null;
+  if (body.data.retrievalAllowed === true) {
+    if (current.reviewStatus === "excluded") return json({ error: "INSTITUTION_EXCLUDED" }, 400);
+    if (current.reviewStatus !== "identity_checked") return json({ error: "IDENTITY_NOT_CHECKED" }, 400);
+    if (trustedPool.length === 0) return json({ error: "TRUSTED_POOL_REQUIRED" }, 400);
+    if (termsReviewStatus !== "reviewed_query_time_link") return json({ error: "TERMS_REVIEW_REQUIRED" }, 400);
+    if ((current.retrievalMethod ?? "none") === "none" && !current.searchTemplate) {
+      return json({ error: "NO_RETRIEVAL_METHOD" }, 400);
+    }
+    if (!body.data.testQuestion) return json({ error: "TEST_QUESTION_REQUIRED" }, 400);
+    const trial = normalizeInstitution({ ...current, retrievalAllowed: true, trustedPool, termsReviewStatus });
+    const report = await trialSearchInstitution({
+      institution: trial,
+      madhhab: trustedPool[0] as (typeof MADHHABS)[number],
+      question: body.data.testQuestion,
+      limit: 2,
+    });
+    lastRetrievalTest = retrievalTestRecord(report, trial.retrievalMethod ?? "none");
+    if (!lastRetrievalTest.ok) return json({ error: "RETRIEVAL_TEST_FAILED", lastRetrievalTest, report: { queries: report.queries, skipped: report.skipped, hits: report.hits } }, 400);
+  }
   const updated = await deps.store.updateInstitution(body.data.id, {
-    trustedPool: body.data.trustedPool ?? current.trustedPool,
+    trustedPool,
     methodology: body.data.methodology ?? current.methodology,
-    lastChecked: (body.data.checkedOn as "2026-10-26") ?? current.lastChecked,
+    lastChecked: body.data.checkedOn ?? current.lastChecked,
     notes: body.data.reviewerNote ? `${current.notes} Reviewer note: ${body.data.reviewerNote}` : current.notes,
-    retrievalAllowed: body.data.retrievalAllowed === true ? true : false,
+    retrievalAllowed: body.data.retrievalAllowed ?? current.retrievalAllowed,
+    termsReviewStatus,
+    lastRetrievalTest,
   });
   return json({ institution: updated });
+}
+
+export async function postWebsiteTest(request: Request, deps: AppDeps): Promise<Response> {
+  const denied = requireAdmin(request, deps);
+  if (denied) return denied;
+  const body = z.object({
+    institutionId: z.string(),
+    question: z.string().min(1).max(4000),
+    madhhab: z.string(),
+    offDomainUrl: z.string().optional(),
+  }).safeParse(await request.json().catch(() => null));
+  if (!body.success) return json({ error: "INVALID_REQUEST" }, 400);
+  const madhhab = parseMadhhab(body.data.madhhab);
+  const listed = await deps.store.listInstitutions();
+  const current = listed.find((item) => item.id === body.data.institutionId);
+  if (!current) return json({ error: "NOT_FOUND" }, 404);
+  const processed = processQuestion(body.data.question);
+  const trial = normalizeInstitution({ ...current, retrievalAllowed: true, trustedPool: current.trustedPool.length > 0 ? current.trustedPool : [madhhab] });
+  const report = await trialSearchInstitution({
+    institution: trial,
+    madhhab,
+    question: body.data.question,
+    limit: 3,
+  });
+  const offDomain = await checkPermittedPage(trial, body.data.offDomainUrl ?? "https://evil.example/fatwa");
+  const lastRetrievalTest = retrievalTestRecord(report, trial.retrievalMethod ?? "none");
+  await deps.store.updateInstitution(current.id, { lastRetrievalTest });
+  return json({
+    institutionId: current.id,
+    domain: current.domain,
+    retrievalAllowed: current.retrievalAllowed,
+    retrievalMethod: trial.retrievalMethod,
+    pathAllowlist: trial.pathAllowlist,
+    termsReviewStatus: trial.termsReviewStatus,
+    identityVerificationStatus: current.reviewStatus,
+    detectedLanguage: processed.detectedLanguage,
+    arabicQuery: processed.arabicQuery,
+    urduQuery: processed.urduQuery,
+    queries: report.queries,
+    searched: report.searched,
+    skipped: report.skipped,
+    hits: report.hits,
+    pagesRetrieved: report.hits.filter((hit) => !hit.snippetOnly).length,
+    offDomainRejected: !offDomain.ok,
+    offDomain: offDomain.ok ? null : offDomain,
+    lastRetrievalTest,
+    retrievedAt: lastRetrievalTest.at,
+    live: true,
+    enabled: false,
+  });
 }
 
 export async function postAdminDiagnose(request: Request, deps: AppDeps): Promise<Response> {

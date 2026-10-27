@@ -33,7 +33,46 @@ export type Institution = {
   accessibility: string;
   reviewStatus: "identity_checked" | "pending" | "excluded";
   notes: string;
+  /** Path prefixes permitted after the host check. Empty means no extra path restriction. */
+  pathAllowlist?: string[];
+  /** Subjects this institution may be searched for. Descriptive; not a licence. */
+  subjectCoverage?: string[];
+  retrievalMethod?: "none" | "opensearch_rss" | "page_url";
+  /** OpenSearch-style template with `{searchTerms}`. Null when no compliant search exists. */
+  searchTemplate?: string | null;
+  termsReviewStatus?: "unreviewed" | "reviewed_query_time_link" | "rejected";
+  lastRetrievalTest?: { at: string; ok: boolean; method: string; sampleUrl: string | null; error: string | null } | null;
 };
+
+export function normalizeInstitution(item: Institution): Institution {
+  return {
+    ...item,
+    pathAllowlist: item.pathAllowlist ?? [],
+    subjectCoverage: item.subjectCoverage ?? [],
+    retrievalMethod: item.retrievalMethod ?? "none",
+    searchTemplate: item.searchTemplate ?? null,
+    termsReviewStatus: item.termsReviewStatus ?? "unreviewed",
+    lastRetrievalTest: item.lastRetrievalTest ?? null,
+    retrievalAllowed: item.retrievalAllowed === true,
+  };
+}
+
+/** Runtime store rows overlay seed identity/config. Missing method fields must not wipe the seed. */
+export function mergeInstitution(seed: Institution, saved?: Partial<Institution> | null): Institution {
+  if (!saved) return normalizeInstitution(seed);
+  return normalizeInstitution({
+    ...seed,
+    ...saved,
+    pathAllowlist: saved.pathAllowlist ?? seed.pathAllowlist,
+    subjectCoverage: saved.subjectCoverage ?? seed.subjectCoverage,
+    retrievalMethod: saved.retrievalMethod && saved.retrievalMethod !== "none" ? saved.retrievalMethod : seed.retrievalMethod,
+    searchTemplate: saved.searchTemplate ?? seed.searchTemplate,
+    termsReviewStatus: saved.termsReviewStatus ?? seed.termsReviewStatus,
+    madhhabScope: saved.madhhabScope ?? seed.madhhabScope,
+    trustedPool: saved.trustedPool ?? seed.trustedPool,
+    retrievalAllowed: saved.retrievalAllowed === true,
+  });
+}
 
 export const INSTITUTIONS: Institution[] = [
   {
@@ -188,7 +227,13 @@ export const INSTITUTIONS: Institution[] = [
     lastChecked: "2026-10-26",
     accessibility: "Homepage and the cited article returned HTTP 200.",
     reviewStatus: "identity_checked",
-    notes: "Shafi'i is the statutory starting point, not a guarantee that every fatwa is Shafi'i. Scope is the Federal Territories of Malaysia.",
+    notes: "Shafi'i is the statutory starting point, not a guarantee that every fatwa is Shafi'i. Scope is the Federal Territories of Malaysia. Retrieval stays off in the seed; enablement requires an admin live test that retrieves a full article page. Query-time link and excerpt only; the corpus is not stored.",
+    pathAllowlist: ["/en/artikel/", "/ms/artikel/"],
+    subjectCoverage: ["Federal Territories fatwa articles", "Bayan Linnas", "Irsyad Hukum"],
+    retrievalMethod: "opensearch_rss",
+    searchTemplate: "https://www.muftiwp.gov.my/en/carian?q={searchTerms}&format=feed&type=rss",
+    termsReviewStatus: "reviewed_query_time_link",
+    lastRetrievalTest: null,
   },
   {
     id: "alifta-saudi",
@@ -201,7 +246,9 @@ export const INSTITUTIONS: Institution[] = [
     languages: ["ar"],
     madhhabScope: [],
     trustedPool: [],
-    accessMethod: "Homepage only. robots.txt allows / and disallows /login-success and API paths. Those API paths were not called.",
+    accessMethod: "Homepage only. robots.txt allows / and disallows /login-success and API paths. Those API paths were not called. No OpenSearch or public feed is configured.",
+    retrievalMethod: "none",
+    searchTemplate: null,
     licenseNotes: "No bulk copy permission was found. The robots file is not a licence.",
     linkingAllowed: "unknown",
     retrievalAllowed: false,

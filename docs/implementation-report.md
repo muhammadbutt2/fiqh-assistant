@@ -125,7 +125,7 @@ The previous behaviour dropped every unmeasured OCR hit, so the user saw `insuff
 - One matching approved passage is enough to display. A second book is not required.
 - If the approved index is empty, matching unmeasured OCR or pending-review text is shown as a labelled candidate. It is not approved evidence. No ruling is generated from it. Calibration thresholds were not lowered.
 - Neighbouring PDF pages from the same book are added for context.
-- Approved websites are planned (`src/server/websites.ts`) and skipped while `retrievalAllowed` is false. Off-domain URLs are refused.
+- Approved websites (`src/server/websites.ts`) are searched only when local approved evidence is empty. Seed `retrievalAllowed` stays false. Admin enablement requires a live page fetch. Off-domain URLs are refused.
 - Admin diagnose lists approved matches, labelled candidates with rejection reasons, and skipped websites.
 
 `ocr:index` now stores unmeasured OCR as candidate chunks (`searchable: false`, `ocrQuality: unmeasured`). Indexed without `--approve`: al-Quduri 72 chunks (36 pages), Bahishti Zewar English 19 chunks (12 pages). Minhaj stays quarantined unmeasured. Approved searchable chunks remain 0.

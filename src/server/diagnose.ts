@@ -59,8 +59,24 @@ export async function diagnoseRetrieval(input: {
     neighborsAdded: research.neighborsAdded,
     websitesSearched: research.websites.searched,
     websitesSkipped: research.websites.skipped,
-    citationValidation: research.evidenceRole === "approved" ? "passages_retrieved" : research.evidenceRole === "candidate" ? "candidate_only_not_a_ruling" : "no_passage",
+    citationValidation: research.evidenceRole === "approved"
+      ? "passages_retrieved"
+      : research.evidenceRole === "institutional"
+        ? "institutional_pages_not_a_book_ruling"
+        : research.evidenceRole === "candidate"
+          ? "candidate_only_not_a_ruling"
+          : "no_passage",
     sufficientEvidence: research.evidenceRole === "approved",
+    websiteHits: research.websites.hits.map((hit) => ({
+      url: hit.url,
+      title: hit.title,
+      institution: hit.institutionName,
+      snippetOnly: hit.snippetOnly,
+      language: hit.language,
+      retrievedAt: hit.retrievedAt,
+      excerpt: hit.excerpt.slice(0, 240),
+      sourceApprovalStatus: hit.sourceApprovalStatus,
+    })),
     candidates: approved.map((chunk) => ({
       sourceId: chunk.id,
       title: chunk.title,
@@ -92,6 +108,6 @@ export async function diagnoseRetrieval(input: {
       rejectedFromApprovedEvidence: explainRejection(chunk, input.madhhab, false),
       evidenceRole: "candidate" as const,
     })),
-    note: "Approved matches are the only passages that can support a ruling. Unmeasured OCR and pending-review text can appear as labelled candidates so a single match is not hidden. They are not approved evidence. Semantic embeddings are not configured. Arabic and Urdu queries come from the terminology registry unless a translation provider is configured. Institutional websites are skipped while retrievalAllowed is false.",
+    note: "Approved book matches are the only passages that can support a ruling. Institutional pages are shown with a direct link and are not quotations from a classical book. Unmeasured OCR may appear as labelled candidates. Semantic embeddings are not configured. Websites are searched only when local approved evidence is empty, and only for institutions with retrievalAllowed true after an admin live test.",
   };
 }

@@ -1,5 +1,5 @@
 import { Prisma, PrismaClient } from "@prisma/client";
-import { EXPECTED_WORKS, INSTITUTIONS, QUDURI_CATALOGUE_CANDIDATES, statusForWork, type Institution } from "@/data/sources";
+import { EXPECTED_WORKS, INSTITUTIONS, QUDURI_CATALOGUE_CANDIDATES, mergeInstitution, statusForWork, type Institution } from "@/data/sources";
 import type { Madhhab } from "@/server/madhhab";
 import type { AcquisitionRecord, AuditRecord, ExchangeRecord, FeedbackRecord, JobRecord, PreferenceRecord, Store, StoredDocument, UserRecord } from "@/server/store";
 import type { PublicAnswer, StoredChunk } from "@/server/types";
@@ -286,13 +286,14 @@ export function createPrismaStore(): Store {
         await client.institution.createMany({ data: INSTITUTIONS.map((item) => ({ id: item.id, payload: json(item) })) });
       }
       const rows = await client.institution.findMany();
-      return rows.map((row) => row.payload as Institution);
+      const byId = new Map(rows.map((row) => [row.id, row.payload as Institution]));
+      return INSTITUTIONS.map((seed) => mergeInstitution(seed, byId.get(seed.id)));
     },
     async updateInstitution(id, patch) {
       const items = await this.listInstitutions();
       const current = items.find((item) => item.id === id);
       if (!current) throw new Error("NOT_FOUND");
-      const next = { ...current, ...patch };
+      const next = mergeInstitution(current, { ...current, ...patch });
       await client.institution.upsert({ where: { id }, create: { id, payload: json(next) }, update: { payload: json(next) } });
       return next;
     },

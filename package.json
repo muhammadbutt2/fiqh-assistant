@@ -21,7 +21,8 @@
     "ocr:calibrate": "tsx scripts/ocr-calibrate.ts",
     "ocr:index": "tsx scripts/ocr-index.ts",
     "ingest:open-text": "tsx scripts/ingest-open-text.ts",
-    "eval:real-book": "tsx scripts/eval-real-book.ts"
+    "eval:real-book": "tsx scripts/eval-real-book.ts",
+    "website:live-enable": "tsx scripts/live-website-enable.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
