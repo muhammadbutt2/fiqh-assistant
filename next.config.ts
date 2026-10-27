@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+const isDev = process.env.NODE_ENV !== "production";
+
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
@@ -13,8 +15,9 @@ const securityHeaders = [
       "img-src 'self' data:",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com data:",
-      "script-src 'self' 'unsafe-inline'",
-      "connect-src 'self'",
+      // Next.js Fast Refresh eval()s in development. Without this, React never hydrates and buttons do nothing.
+      isDev ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'" : "script-src 'self' 'unsafe-inline'",
+      isDev ? "connect-src 'self' ws: wss:" : "connect-src 'self'",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
