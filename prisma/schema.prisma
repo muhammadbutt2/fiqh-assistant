@@ -1,0 +1,330 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Exactly four Sunni schools. The database has no fifth value.
+enum Madhhab {
+  hanafi
+  maliki
+  shafii
+  hanbali
+}
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  passwordHash String
+  createdAt    DateTime     @default(now())
+  preference   Preference?
+  sessions     Session[]
+  questions    Question[]
+  feedback     Feedback[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model AnonymousSession {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+}
+
+model Preference {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  madhhab      Madhhab?
+  answerLocale String?
+}
+
+model Author {
+  id    String @id @default(cuid())
+  name  String
+  works Work[]
+}
+
+model Work {
+  id                String              @id
+  canonicalTitle    String
+  alternativeTitles String[]
+  authorId          String?
+  author            Author?             @relation(fields: [authorId], references: [id])
+  madhhab           Madhhab?
+  workType          String
+  comparative       Boolean             @default(false)
+  editions          Edition[]
+  acquisitions      AcquisitionRecord[]
+}
+
+model Edition {
+  id         String     @id @default(cuid())
+  workId     String
+  work       Work       @relation(fields: [workId], references: [id], onDelete: Cascade)
+  label      String
+  language   String
+  publisher  String?
+  year       String?
+  isbn       String?
+  documents  Document[]
+}
+
+model Document {
+  id                  String               @id @default(cuid())
+  editionId           String?
+  edition             Edition?             @relation(fields: [editionId], references: [id])
+  title               String
+  authorName          String
+  madhhab             Madhhab
+  sourceClass         String
+  language            String
+  sha256              String               @unique
+  format              String
+  storagePath         String
+  rightsStatus        String
+  verificationStatus  String
+  trustClassification String
+  ocrStatus           String
+  searchable          Boolean              @default(false)
+  isTestFixture       Boolean              @default(false)
+  notes               String?
+  verificationNote    String               @default("")
+  methodology         String               @default("")
+  checkedOn           String               @default("")
+  editionLabel        String?
+  url                 String?
+  fatwaNumber         String?
+  volume              Int?
+  createdAt           DateTime             @default(now())
+  chunks              Chunk[]
+  jobs                IngestionJob[]
+  rights              RightsRecord[]
+  verifications       VerificationRecord[]
+
+  @@index([madhhab, searchable])
+}
+
+model RightsRecord {
+  id         String   @id @default(cuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  status     String
+  notes      String
+  checkedOn  String
+}
+
+model VerificationRecord {
+  id           String   @id @default(cuid())
+  documentId   String
+  document     Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  status       String
+  reviewerNote String
+  methodology  String?
+  checkedOn    String
+}
+
+model Chunk {
+  id                   String   @id @default(cuid())
+  documentId           String
+  document             Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  madhhab              Madhhab
+  sourceClass          String
+  language             String
+  originalText         String
+  normalizedText       String
+  chapterPath          Json
+  volume               Int?
+  printedPageStart     Int?
+  printedPageEnd       Int?
+  pdfPageStart         Int
+  pdfPageEnd           Int
+  ocrQuality           String
+  searchable           Boolean
+  trustClassification  String
+  verificationStatus   String
+  rightsStatus         String
+  isTestFixture        Boolean  @default(false)
+  url                  String?
+  fatwaNumber          String?
+  title                String
+  author               String
+  editionLabel         String?
+  opinionLabels        Json
+  comparativeAppliesTo Json
+  translation          Json?
+  embedding            Json?
+  workId               String?
+  editionId            String?
+
+  @@index([madhhab, searchable])
+}
+
+model Institution {
+  id      String        @id
+  payload Json
+  domains Domain[]
+  fatwas  FatwaRecord[]
+}
+
+model Domain {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  hostname      String      @unique
+}
+
+model FatwaRecord {
+  id                 String       @id @default(cuid())
+  institutionId      String?
+  institution        Institution? @relation(fields: [institutionId], references: [id])
+  url                String
+  madhhab            Madhhab?
+  methodologyStatus  String
+  stored             Boolean      @default(false)
+  notes              String?
+  checkedOn          String
+}
+
+model AcquisitionRecord {
+  id       String               @id
+  workId   String?
+  work     Work?                @relation(fields: [workId], references: [id])
+  status   String
+  payload  Json
+  attempts AcquisitionAttempt[]
+}
+
+model AcquisitionAttempt {
+  id            String             @id @default(cuid())
+  acquisitionId String
+  acquisition   AcquisitionRecord  @relation(fields: [acquisitionId], references: [id], onDelete: Cascade)
+  query         String
+  url           String?
+  outcome       String
+  at            String
+}
+
+model IngestionJob {
+  id         String           @id @default(cuid())
+  documentId String?
+  document   Document?        @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  status     String
+  step       String
+  error      String?
+  attempts   Int              @default(0)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  events     IngestionEvent[]
+}
+
+model IngestionEvent {
+  id      String       @id @default(cuid())
+  jobId   String
+  job     IngestionJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  at      String
+  message String
+  level   String
+}
+
+model Conversation {
+  id          String     @id @default(cuid())
+  userId      String?
+  anonymousId String?
+  madhhab     Madhhab
+  createdAt   DateTime   @default(now())
+  questions   Question[]
+}
+
+model Question {
+  id                 String             @id @default(cuid())
+  conversationId     String
+  conversation       Conversation       @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId             String?
+  user               User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  originalText       String
+  textSha256         String
+  detectedLanguage   String
+  detectionUncertain Boolean
+  answerLocale       String
+  madhhab            Madhhab
+  createdAt          DateTime           @default(now())
+  variants           RetrievalVariant[]
+  answers            Answer[]
+}
+
+model RetrievalVariant {
+  id         String   @id @default(cuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  kind       String
+  language   String
+  textSha256 String
+  method     String
+}
+
+model Answer {
+  id         String     @id @default(cuid())
+  questionId String
+  question   Question   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  status     String
+  payload    Json
+  provider   String
+  model      String?
+  createdAt  DateTime   @default(now())
+  citations  Citation[]
+}
+
+model Citation {
+  id       String  @id @default(cuid())
+  answerId String
+  answer   Answer  @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  sourceId String
+  valid    Boolean
+}
+
+model Feedback {
+  id        String   @id @default(cuid())
+  answerId  String?
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  kind      String
+  note      String?
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id                   String   @id @default(cuid())
+  requestId            String
+  madhhab              String?
+  detectedLanguage     String?
+  answerLanguage       String?
+  retrievalLanguages   String?
+  sourceIds            String?
+  latencyMs            Int?
+  provider             String?
+  model                String?
+  translationMethod    String?
+  citationValidation   String?
+  answerStatus         String?
+  errorCode            String?
+  questionSha256       String?
+  createdAt            DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model GlossaryTerm {
+  id      String @id
+  payload Json
+}
