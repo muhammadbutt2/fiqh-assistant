@@ -287,32 +287,39 @@ export async function postAdminUpload(request: Request, deps: AppDeps): Promise<
   const madhhab = parseMadhhab(String(form.get("madhhab") ?? ""));
   const sourceClass = String(form.get("sourceClass") ?? "primary");
   if (!["primary", "institutional_fatwa", "secondary", "comparative", "unverified"].includes(sourceClass)) return json({ error: "INVALID_REQUEST" }, 400);
-  const { document, job } = await storeUpload({
-    storageDir: deps.storageDir,
-    bytes,
-    format,
-    store: deps.store,
-    metadata: {
-      title: String(form.get("title") ?? file.name),
-      author: String(form.get("author") ?? ""),
-      madhhab,
-      sourceClass: sourceClass as "primary",
-      language: String(form.get("language") ?? "und"),
+  let stored: Awaited<ReturnType<typeof storeUpload>>;
+  try {
+    stored = await storeUpload({
+      storageDir: deps.storageDir,
+      bytes,
       format,
-      rightsStatus: "rights_review_required",
-      verificationStatus: "pending",
-      trustClassification: "pending",
-      notes: String(form.get("notes") ?? ""),
-      url: null,
-      fatwaNumber: null,
-      volume: null,
-      editionLabel: String(form.get("edition") ?? "") || null,
-      workId: null,
-      verificationNote: "",
-      methodology: "",
-      checkedOn: "",
-    },
-  });
+      store: deps.store,
+      metadata: {
+        title: String(form.get("title") ?? file.name),
+        author: String(form.get("author") ?? ""),
+        madhhab,
+        sourceClass: sourceClass as "primary",
+        language: String(form.get("language") ?? "und"),
+        format,
+        rightsStatus: "rights_review_required",
+        verificationStatus: "pending",
+        trustClassification: "pending",
+        notes: String(form.get("notes") ?? ""),
+        url: null,
+        fatwaNumber: null,
+        volume: null,
+        editionLabel: String(form.get("edition") ?? "") || null,
+        workId: null,
+        verificationNote: "",
+        methodology: "",
+        checkedOn: "",
+      },
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "DUPLICATE_FILE") return json({ error: "DUPLICATE_FILE" }, 409);
+    throw error;
+  }
+  const { document, job } = stored;
   await processJob(deps.store, job.id);
   const finished = (await deps.store.listJobs()).find((item) => item.id === job.id);
   return json({ documentId: document.id, job: finished, storagePath: undefined }, 201);

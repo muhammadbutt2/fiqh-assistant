@@ -129,6 +129,36 @@ describe("uploads and ingestion", () => {
     expect(response.status).toBe(400);
     expect(await store.listDocuments()).toEqual([]);
   });
+
+  it("answers a repeated upload of the same bytes with 409 instead of crashing", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "fiqh-upload-"));
+    dirs.push(dir);
+    const store = createMemoryStore();
+    const secret = "secret";
+    const cookie = `fiqh_session=${encodeURIComponent(signSession({ sub: "admin", role: "admin", exp: Date.now() + 60_000 }, secret))}`;
+    const deps = {
+      store,
+      chat: unavailableChat(),
+      translator: { id: "u", available: () => false, translate: async () => [] },
+      authSecret: secret,
+      adminPassword: "password",
+      storageDir: dir,
+      maxUploadBytes: 1000,
+      rateLimit: () => true,
+    };
+    const upload = (name: string) => {
+      const form = new FormData();
+      form.set("file", new File(["same plain text body"], name, { type: "text/plain" }));
+      form.set("madhhab", "hanafi");
+      form.set("sourceClass", "unverified");
+      return postAdminUpload(new Request("http://local/api/admin/documents", { method: "POST", headers: { cookie }, body: form }), deps);
+    };
+    expect((await upload("first.txt")).status).toBe(201);
+    const again = await upload("second.txt");
+    expect(again.status).toBe(409);
+    expect(await again.json()).toEqual({ error: "DUPLICATE_FILE" });
+    expect((await store.listDocuments()).length).toBe(1);
+  });
 });
 
 describe("institutional retrieval gate", () => {
