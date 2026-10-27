@@ -10,7 +10,7 @@ export function AnswerPanel({ answer, onFeedback }: { answer: PublicAnswer; onFe
   return (
     <article className={`answer ${font ?? ""}`} lang={locale?.bcp47 ?? answer.preferredAnswerLanguage} dir={direction} aria-live="polite">
       <p className="status">{answer.notAMufti ? "This is an AI-assisted research service, not a mufti, and not a substitute for qualified scholarly judgment." : null}</p>
-      <h2>Answer</h2>
+      <h2>Answer Summary</h2>
       <p className="meta">Searched Arabic and Urdu sources for the selected school. This reply is in your selected language. A quotation stays in the language of the book.</p>
       <p>{answer.answer}</p>
       {answer.nativeReview === "pending" && answer.canonicalEnglish ? (
@@ -52,6 +52,7 @@ export function AnswerPanel({ answer, onFeedback }: { answer: PublicAnswer; onFe
       <h3>Next steps</h3>
       <p>{answer.humanReviewRecommended ? "A qualified mufti should be consulted. This service has not arranged that review." : "No further step is required by the system."}</p>
       <div className="row">
+        <button type="button" className="secondary" onClick={() => { void navigator.clipboard?.writeText(answer.answer); }}>Copy answer</button>
         <button type="button" className="secondary" onClick={() => onFeedback?.("incorrect_citation")}>Report an incorrect citation</button>
         <button type="button" className="secondary" onClick={() => onFeedback?.("incorrect_answer")}>Report an incorrect answer</button>
       </div>

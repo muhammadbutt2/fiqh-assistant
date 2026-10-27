@@ -38,6 +38,11 @@ export function AskScreen({ ask = defaultAsk }: { ask?: (body: unknown, signal: 
     fetch("/api/status").then((response) => response.json()).then((payload: { libraryPopulated?: boolean }) => {
       if (payload.libraryPopulated) setLibrary("Approved material is indexed for the schools that have passed review.");
     }).catch(() => setError("The library status could not be loaded."));
+    const draft = window.sessionStorage.getItem("fiqh.draft");
+    if (draft) {
+      setQuestion(draft);
+      window.sessionStorage.removeItem("fiqh.draft");
+    }
   }, []);
 
   async function submit(nextLocale = localeId) {
@@ -99,11 +104,11 @@ export function AskScreen({ ask = defaultAsk }: { ask?: (body: unknown, signal: 
         <textarea aria-label="Question" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Ask in any language you write. The school, not the language, chooses the sources." />
       </label>
       <div className="row">
-        <button type="button" onClick={() => void submit()} disabled={!madhhab || loading || !question.trim()}>{loading ? "Searching" : "Submit"}</button>
+        <button type="button" aria-label="Submit" onClick={() => void submit()} disabled={!madhhab || loading || !question.trim()}>{loading ? "Searching" : "Find Answer"}</button>
         <button type="button" className="secondary" onClick={() => controller?.abort()} disabled={!loading}>Cancel</button>
         <button type="button" className="secondary" onClick={() => void submit()} disabled={!error && !answer}>Retry</button>
       </div>
-      {loading ? <p role="status">Translating the question into Arabic and Urdu, then searching the selected school.</p> : null}
+      {loading ? <p role="status">Searching approved passages for the selected madhhab, using the original question and Arabic and Urdu terminology.</p> : null}
       {error ? <p className="alert" role="alert">{error}</p> : null}
       {!madhhab ? <p role="status">Select a school before asking.</p> : null}
       {answer ? <AnswerPanel answer={answer} onFeedback={(kind) => { void fetch("/api/feedback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ answerId: answer.id, kind }) }); }} /> : null}

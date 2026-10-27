@@ -21,6 +21,8 @@ export function HomeFlow() {
     if (!madhhab || !localeId) return;
     const locale = locales.find((item) => item.localeId === localeId);
     window.localStorage.setItem(PREFS_KEY, JSON.stringify({ madhhab, localeId, direction: locale?.direction, bcp47: locale?.bcp47 }));
+    const draft = (document.getElementById("masla") as HTMLTextAreaElement | null)?.value.trim();
+    if (draft) window.sessionStorage.setItem("fiqh.draft", draft);
     window.location.href = "/ask";
   }
 
@@ -39,7 +41,7 @@ export function HomeFlow() {
           ))}
         </div>
       </section>
-      <section aria-labelledby="language-heading">
+      <section id="language" aria-labelledby="language-heading">
         <h2 id="language-heading">2. Select an answer language</h2>
         <p className="meta">The list follows a total-speaker ranking. It is not a judgment about religious importance, and rankings vary.</p>
         <label>
@@ -57,10 +59,22 @@ export function HomeFlow() {
           ))}
         </ul>
       </section>
-      <section>
-        <h2>3. Ask</h2>
-        <p>The question box opens after both choices. You can change them later.</p>
-        <button type="button" disabled={!madhhab || !localeId} onClick={continueToAsk}>Continue</button>
+      <section id="ask-panel" aria-labelledby="ask-heading">
+        <h2 id="ask-heading">What Would You Like to Know?</h2>
+        <p>Write your question naturally. You can ask in your preferred language. The answer language above does not change your madhhab.</p>
+        <label htmlFor="masla">Describe your masla here</label>
+        <textarea id="masla" dir="auto" placeholder="Describe your masla here..." />
+        <p className="meta">Sample suggestions, not rulings.</p>
+        <div className="row">
+          {["Zakat and savings", "Prayer-related questions", "Fasting and Ramadan"].map((label) => (
+            <button key={label} type="button" className="secondary" onClick={() => {
+              const box = document.getElementById("masla") as HTMLTextAreaElement | null;
+              if (box) box.value = label;
+            }}>{label}</button>
+          ))}
+        </div>
+        <button type="button" disabled={!madhhab || !localeId} onClick={continueToAsk}>Find Answer</button>
+        <p className="meta">A school and an answer language are required before the question is sent.</p>
       </section>
     </div>
   );

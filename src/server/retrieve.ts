@@ -12,6 +12,13 @@ const CLASS_WEIGHT: Record<StoredChunk["sourceClass"], number> = {
 
 export type SelectedChunk = StoredChunk & { retrievalScore: number; semanticScore: number | null };
 
+const QUERY_STOP = new Set(["the", "and", "for", "that", "this", "with", "from", "are", "was", "what", "هل", "في", "من", "على", "عن", "الى", "إلى", "کیا", "كيا", "اور", "پر"]);
+
+function variantTokens(text: string): string[] {
+  const tokens = tokenize(text).filter((token) => !QUERY_STOP.has(token));
+  return tokens.length > 0 ? tokens : tokenize(text);
+}
+
 export function selectChunks(input: {
   chunks: StoredChunk[];
   madhhab: Madhhab;
@@ -19,16 +26,23 @@ export function selectChunks(input: {
   allowTestFixtures: boolean;
   limit?: number;
 }): SelectedChunk[] {
-  const queryTokens = new Set(input.variants.flatMap((variant) => tokenize(variant.text)));
+  const variantSets = input.variants.map((variant) => ({ variant, tokens: new Set(variantTokens(variant.text)) }));
   const eligible = input.chunks.filter((chunk) => chunkAllowed(chunk, input.madhhab, input.allowTestFixtures));
   const scored = eligible
     .map((chunk) => {
       const tokens = tokenize(chunk.normalizedText || chunk.originalText);
-      const shared = tokens.filter((token) => tokenOverlaps(queryTokens, token));
-      if (shared.length === 0) return null;
-      const overlap = shared.length / Math.max(queryTokens.size, 1);
+      let retrievalScore = 0;
+      let matched = false;
+      for (const entry of variantSets) {
+        const shared = tokens.filter((token) => tokenOverlaps(entry.tokens, token));
+        if (shared.length === 0) continue;
+        matched = true;
+        const scriptBoost = entry.variant.language === "ar" || entry.variant.language === "ur" ? 1.15 : 1;
+        retrievalScore += scriptBoost * (shared.length / Math.max(entry.tokens.size, 1));
+      }
+      if (!matched) return null;
       const phrase = input.variants.some((variant) => variant.kind === "glossary" && chunk.normalizedText.includes(tokenize(variant.text).slice(-1)[0] ?? ""));
-      const retrievalScore = Math.min(overlap, 1) + CLASS_WEIGHT[chunk.sourceClass] + (phrase ? 0.1 : 0);
+      retrievalScore = Math.min(retrievalScore, 3) + CLASS_WEIGHT[chunk.sourceClass] + (phrase ? 0.1 : 0);
       return { ...chunk, retrievalScore, semanticScore: null as number | null };
     })
     .filter((chunk): chunk is SelectedChunk => chunk !== null);

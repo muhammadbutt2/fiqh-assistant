@@ -127,6 +127,19 @@ export function detectLanguage(text: string): Detection {
   return { language: "und", script: tally.latin > 0 ? "Latn" : "Zyyy", mixed, uncertain: true, candidates: ranked.filter((item) => item.score > 0).map((item) => item.language), romanUrdu: false, signals: ["low-confidence"] };
 }
 
+const SAVINGS_HINT = /saving|savings|ahorros|épargne|epargne|مدخر|جمع شدہ|bachat|जमा|存款|birikim|tasarruf|مدخرات/i;
+
+function uniqueJoin(parts: string[]): string {
+  const seen = new Set<string>();
+  const kept: string[] = [];
+  for (const part of parts.map((item) => item.trim()).filter(Boolean)) {
+    if (seen.has(part)) continue;
+    seen.add(part);
+    kept.push(part);
+  }
+  return kept.join(" ");
+}
+
 export function buildVariants(question: string, detection: Detection): { variants: QueryVariant[]; method: string; model: string | null } {
   const hits = findGlossaryHits(question);
   const variants: QueryVariant[] = [
@@ -134,33 +147,22 @@ export function buildVariants(question: string, detection: Detection): { variant
     { id: "normalized", kind: "normalized", language: detection.language, text: normalizeForSearch(question), method: "unicode_search_normalization", model: null },
   ];
   if (hits.length > 0) {
-    const arabic = hits.map((hit) => hit.preferred.ar ?? hit.arabic).join(" ");
-    const urdu = hits.map((hit) => hit.preferred.ur ?? hit.arabic).join(" ");
-    const english = hits.map((hit) => hit.preferred.en ?? hit.transliteration).join(" ");
-    variants.push({
-      id: "glossary-ar",
-      kind: "glossary",
-      language: "ar",
-      text: `${normalizeForSearch(question)} ${arabic}`,
-      method: "glossary_terms_only",
-      model: null,
-    });
-    variants.push({
-      id: "glossary-ur",
-      kind: "glossary",
-      language: "ur",
-      text: `${normalizeForSearch(question)} ${urdu}`,
-      method: "glossary_terms_only",
-      model: null,
-    });
-    variants.push({
-      id: "glossary-en",
-      kind: "glossary",
-      language: "en",
-      text: english,
-      method: "glossary_terms_only",
-      model: null,
-    });
+    const savings = hits.some((hit) => hit.id === "zakat") && SAVINGS_HINT.test(question);
+    const arabic = uniqueJoin([
+      ...hits.map((hit) => hit.preferred.ar ?? hit.arabic),
+      ...hits.flatMap((hit) => hit.searchPhrases?.ar ?? []),
+      ...(savings ? ["زكاة المال المدخر"] : []),
+    ]);
+    const urdu = uniqueJoin([
+      ...hits.map((hit) => hit.preferred.ur ?? hit.arabic),
+      ...hits.flatMap((hit) => hit.searchPhrases?.ur ?? []),
+      ...(savings ? ["جمع شدہ مال پر زکوٰۃ"] : []),
+    ]);
+    const english = uniqueJoin(hits.map((hit) => hit.preferred.en ?? hit.transliteration));
+    const phraseMethod = savings ? "terminology_pattern" : "glossary_terms_only";
+    variants.push({ id: "glossary-ar", kind: "glossary", language: "ar", text: arabic, method: phraseMethod, model: null });
+    variants.push({ id: "glossary-ur", kind: "glossary", language: "ur", text: urdu, method: phraseMethod, model: null });
+    variants.push({ id: "glossary-en", kind: "glossary", language: "en", text: english, method: "glossary_terms_only", model: null });
   }
   return { variants, method: hits.length > 0 ? "glossary_terms_only" : "original_only", model: null };
 }

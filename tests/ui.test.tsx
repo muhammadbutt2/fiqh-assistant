@@ -66,8 +66,8 @@ function answer(locale: string, directionLanguage = "ar"): PublicAnswer {
 describe("interface", () => {
   it("shows the required landing copy and four schools", () => {
     render(<Page />);
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("AI Islamic Fiqh Assistant");
-    expect(screen.getByText("Ask Islamic jurisprudence questions and explore source-supported answers according to your selected Sunni school of thought.")).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("Find Clarity in Your");
+    expect(screen.getByText(/Ask your question in your own language/)).toBeTruthy();
     expect(screen.getAllByRole("button", { pressed: false }).map((button) => button.textContent).join(" ")).not.toMatch(/Ja'fari|Jafari/);
     for (const name of ["Hanafi", "Maliki", "Shafi'i", "Hanbali"]) {
       expect(screen.getByRole("button", { name: new RegExp(name) })).toBeTruthy();

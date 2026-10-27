@@ -8,6 +8,9 @@ export default function AdminPage() {
   const [stats, setStats] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [jobs, setJobs] = useState<unknown[]>([]);
+  const [traceQuestion, setTraceQuestion] = useState("Do I have to pay zakat on my savings?");
+  const [traceMadhhab, setTraceMadhhab] = useState("hanafi");
+  const [trace, setTrace] = useState<unknown>(null);
 
   async function login(event: FormEvent) {
     event.preventDefault();
@@ -60,6 +63,18 @@ export default function AdminPage() {
             <label>Source class<select name="sourceClass"><option>primary</option><option>institutional_fatwa</option><option>secondary</option><option>comparative</option></select></label>
             <label>Language<input name="language" defaultValue="ar" /></label>
             <button type="submit">Upload for review</button>
+          </form>
+          <form className="panel" onSubmit={async (event) => {
+            event.preventDefault();
+            const response = await fetch("/api/admin/diagnose", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: traceQuestion, madhhab: traceMadhhab }) });
+            setTrace(await response.json());
+          }}>
+            <h2>Retrieval trace</h2>
+            <p>Admin only. Shows detection, Arabic and Urdu queries, and approved candidates. It does not publish anything.</p>
+            <label>Question<textarea value={traceQuestion} onChange={(event) => setTraceQuestion(event.target.value)} /></label>
+            <label>School<select value={traceMadhhab} onChange={(event) => setTraceMadhhab(event.target.value)}>{MADHHABS.map((id) => <option key={id}>{id}</option>)}</select></label>
+            <button type="submit">Run trace</button>
+            {trace ? <pre>{JSON.stringify(trace, null, 2)}</pre> : null}
           </form>
           <section className="panel">
             <h2>Jobs</h2>

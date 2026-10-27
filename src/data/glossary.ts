@@ -6,6 +6,8 @@ export type GlossaryEntry = {
   legalNote: string;
   forms: string[];
   preferred: Record<string, string>;
+  /** Extra Arabic and Urdu strings used only as search queries. They are not translations of a whole question and not rulings. */
+  searchPhrases?: { ar?: string[]; ur?: string[] };
   leaveUntranslated: boolean;
 };
 
@@ -129,6 +131,77 @@ export const GLOSSARY: GlossaryEntry[] = [
     forms: ["حرام", "haram"],
     preferred: { en: "prohibited", ar: "حرام" },
     leaveUntranslated: false,
+  },
+  {
+    id: "zakat",
+    arabic: "زكاة",
+    transliteration: "zakat",
+    definition: "The obligatory alms on qualifying wealth.",
+    legalNote: "Zakat is not the same as voluntary charity (sadaqah). A match on this term does not establish that zakat is due.",
+    forms: ["زكاة", "زكوة", "زکوٰۃ", "زكوة", "زکات", "zakat", "zakaat", "zakah", "zekat", "zekât", "zekat", "azaque", "天课", "ज़कात", "जकात", "যাকাত"],
+    preferred: { en: "zakat", ar: "زكاة", ur: "زکوٰۃ", hi: "ज़कात", es: "zakat", fr: "zakat", zh: "天课" },
+    searchPhrases: { ar: ["زكاة المال"], ur: ["مال کی زکوٰۃ"] },
+    leaveUntranslated: true,
+  },
+  {
+    id: "sadaqah",
+    arabic: "صدقة",
+    transliteration: "sadaqah",
+    definition: "Voluntary charity.",
+    legalNote: "Do not replace sadaqah with zakat, or zakat with sadaqah.",
+    forms: ["صدقة", "صدقہ", "sadaqah", "sadaqa", "sadqa"],
+    preferred: { en: "voluntary charity (sadaqah)", ar: "صدقة", ur: "صدقہ" },
+    leaveUntranslated: true,
+  },
+  {
+    id: "sawm",
+    arabic: "صوم",
+    transliteration: "sawm",
+    definition: "Fasting.",
+    legalNote: "The ruling depends on which fast is meant. This entry is not a ruling.",
+    forms: ["صوم", "الصوم", "روزہ", "روزه", "sawm", "siyam", "roza", "rozah", "fasting", "ramadan", "رمضان"],
+    preferred: { en: "fasting (sawm)", ar: "صوم", ur: "روزہ" },
+    leaveUntranslated: false,
+  },
+  {
+    id: "ghusl",
+    arabic: "غسل",
+    transliteration: "ghusl",
+    definition: "The full ritual bath.",
+    legalNote: "Ghusl is not the same as wudu.",
+    forms: ["غسل", "ghusl", "ghusal"],
+    preferred: { en: "ghusl", ar: "غسل", ur: "غسل" },
+    leaveUntranslated: true,
+  },
+  {
+    id: "nikah",
+    arabic: "نكاح",
+    transliteration: "nikah",
+    definition: "The marriage contract.",
+    legalNote: "Not a ruling on validity or conditions.",
+    forms: ["نكاح", "نکاح", "nikah"],
+    preferred: { en: "marriage contract (nikah)", ar: "نكاح", ur: "نکاح" },
+    leaveUntranslated: true,
+  },
+  {
+    id: "talaq",
+    arabic: "طلاق",
+    transliteration: "talaq",
+    definition: "Divorce pronounced by the husband.",
+    legalNote: "High-stakes. Do not treat khula or faskh as the same act.",
+    forms: ["طلاق", "talaq", "talaaq"],
+    preferred: { en: "talaq", ar: "طلاق", ur: "طلاق" },
+    leaveUntranslated: true,
+  },
+  {
+    id: "riba",
+    arabic: "ربا",
+    transliteration: "riba",
+    definition: "The prohibited increase in specified transactions.",
+    legalNote: "Do not treat every kind of interest, profit, or fee as the same category.",
+    forms: ["ربا", "سود", "riba", "ribaa"],
+    preferred: { en: "riba", ar: "ربا", ur: "سود" },
+    leaveUntranslated: true,
   },
 ];
 

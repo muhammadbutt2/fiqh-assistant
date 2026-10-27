@@ -3,6 +3,7 @@ import { z } from "zod";
 import { listLocales } from "@/data/languages";
 import { INSTITUTIONS } from "@/data/sources";
 import { answerQuestion } from "@/server/answer";
+import { diagnoseRetrieval } from "@/server/diagnose";
 import type { ChatClient, Translator } from "@/server/ai";
 import { applyReview, processJob, processQueuedJobs, storeUpload } from "@/server/ingest";
 import { MADHHABS, parseMadhhab } from "@/server/madhhab";
@@ -372,6 +373,22 @@ export async function postInstitutionReview(request: Request, deps: AppDeps): Pr
     retrievalAllowed: false,
   });
   return json({ institution: updated });
+}
+
+export async function postAdminDiagnose(request: Request, deps: AppDeps): Promise<Response> {
+  const denied = requireAdmin(request, deps);
+  if (denied) return denied;
+  const body = z.object({
+    question: z.string().min(1).max(4000),
+    madhhab: z.string(),
+  }).safeParse(await request.json().catch(() => null));
+  if (!body.success) return json({ error: "INVALID_REQUEST" }, 400);
+  const report = diagnoseRetrieval({
+    question: body.data.question,
+    madhhab: parseMadhhab(body.data.madhhab),
+    chunks: await deps.store.listChunks(),
+  });
+  return json(report);
 }
 
 export async function getJobs(request: Request, deps: AppDeps): Promise<Response> {
