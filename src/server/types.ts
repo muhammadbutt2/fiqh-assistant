@@ -8,6 +8,27 @@ export type OcrQuality = "not_needed" | "unmeasured" | "acceptable" | "poor" | "
 
 export type OpinionLabel = { madhhab: Madhhab; label: string };
 
+export type ChunkProvenance = {
+  bookId: string;
+  sourceSha256: string;
+  configHash: string;
+  extraction: "embedded_text" | "ocr";
+  pageState: string;
+  ocrEngine: string | null;
+  ocrEngineVersion: string | null;
+  ocrModel: string | null;
+  ocrTraineddata: Record<string, string> | null;
+  ocrMeanConfidence: number | null;
+  accuracy: {
+    status: "not_applicable" | "passed";
+    reliableSamples: number | null;
+    strictCer: number | null;
+    strictWer: number | null;
+    thresholdsLoosened: boolean;
+  };
+  printedPageSource: "none" | "verified_page_map";
+};
+
 export type ChunkTranslation = {
   language: string;
   text: string;
@@ -46,6 +67,7 @@ export type StoredChunk = {
   editionLabel: string | null;
   isTestFixture: boolean;
   embedding: number[] | null;
+  provenance?: ChunkProvenance;
 };
 
 export type QueryVariant = {
@@ -86,6 +108,12 @@ export type PublicCitation = {
   verificationStatus: VerificationStatus;
   opinionLabels: OpinionLabel[];
   testFixture: boolean;
+  provenance?: {
+    extraction: ChunkProvenance["extraction"];
+    ocrAccuracy: ChunkProvenance["accuracy"]["status"];
+    ocrModel: string | null;
+    sourceSha256: string;
+  };
 };
 
 export type AnswerStatus = "answered" | "insufficient_evidence" | "needs_clarification" | "human_review_required";

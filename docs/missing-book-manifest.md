@@ -56,14 +56,43 @@ Hanbali: Al-Mughni, Al-Insaf, Kashshaf al-Qina', Sharh Muntaha al-Iradat, Zad al
 
 No download was invented for any of them.
 
-## Update 2026-10-27: local approval run
+## Two different lists (updated 2026-10-27)
 
-At the owner's instruction the 15 distinct local Hanafi PDFs were run through `scripts/ingest-local-books.ts`. None became searchable.
+Do not read the lists below as one backlog. They need different work.
 
-- 14 are image scans with no text layer (0 characters extracted). They are stored with ocrStatus `needs_ocr` and need an OCR engine plus a measured accuracy check.
-- The Bahishti Zewar PDF has a text layer, but the text is garbled and not usable for retrieval.
-- `alhadayah5.pdf` is byte-identical to another file and was skipped.
+### A. Source books we do not have (missing source books)
 
-The only text indexed is the archive.org text of Minhaj al-Talibin (Shafi'i), added with `scripts/ingest-open-text.ts`. Its rights evidence is the uploader's Public Domain Mark. It is archive.org OCR of a 2005 edition, so accuracy is unmeasured and it contains editor material. The review note on the document says so.
+Nothing local exists for these. The work is to obtain a lawful copy and record its edition. No file, text or download has been invented for any of them. They remain `not_located`: every title under "Expected works with no local file" above. Al-Fatawa al-Hindiyyah volume 1 also has no local file. Minhaj al-Talibin has only a third-party archive.org OCR text, which is quarantined (see C).
 
-No book text was written or generated. The titles listed above remain missing.
+### B. Books that exist locally but are not yet extracted, evaluated or indexed
+
+State on 27 October 2026, from `npm run ocr:doctor` and the pilot runs. Searchable pages is 0 for every row. The library is not populated.
+
+| Book id | PDF pages | What the PDF is | Pages OCR'd so far | Reliable human references | Verdict |
+| --- | ---: | --- | ---: | ---: | --- |
+| al-qaduri | 255 | image scan | 12 (ara) | 0 | unmeasured |
+| bahishti-zewar | 768 | garbled text layer, Nastaliq scan | 4 (urd+ara) and 4 (urd), all failed the confidence screen | 0 | unmeasured |
+| al-hadaya1 (vol. 8 per PDF info) | 374 | image scan | 0 | 0 | not started |
+| alhadayah-2 (vol. 7) | 459 | image scan | 0 | 0 | not started |
+| alhadayah3 (vol. 6) | 528 | image scan | 0 | 0 | not started |
+| alhadayah4 (vol. 5) | 560 | image scan | 0 | 0 | not started |
+| alhadayah5 | 560 | byte-identical to alhadayah4, not ingested twice | 0 | 0 | duplicate |
+| alhadayah6 (vol. 4) | 452 | image scan | 0 | 0 | not started |
+| alhadayah7 (vol. 3) | 500 | image scan | 0 | 0 | not started |
+| alhadayah8 (vol. 2) | 504 | image scan | 0 | 0 | not started |
+| alhadayah9 (vol. 1) | 396 | image scan | 0 | 0 | not started |
+| fhindia2 | 446 | image scan | 0 | 0 | not started |
+| fhindia3 | 600 | image scan | 0 | 0 | not started |
+| fhindia4 | 616 | image scan | 0 | 0 | not started |
+| fhindia5 | 576 | image scan | 0 | 0 | not started |
+| fhindia6 | 542 | image scan | 0 | 0 | not started |
+
+Scan classification comes from 8 sampled pages per file. The pipeline classifies every page individually when it runs.
+
+Each still needs, in order: an OCR pilot, human reference transcriptions (at least 10 reliable pages per book, spread over front, middle, back and poor pages, with reviewer and edition), `ocr:calibrate -- evaluate`, owner rights and metadata approval, then `ocr:index`. See `docs/ocr-ingestion.md`. Bahishti Zewar also needs a different OCR engine or a text source, because Tesseract confidence on it was 29 to 39.
+
+### C. Quarantined third-party text
+
+Minhaj al-Talibin (Shafi'i), archive.org OCR of a 2005 edition, 868 chunks. It was searchable in the store after the earlier local run, resting on the uploader's Public Domain Mark. Its OCR accuracy was never measured, so on 27 October 2026 it was quarantined as `third_party_ocr_unmeasured`. The chunks are kept and are not searchable. It contains editor material. It can return to search only through the same measurement and approval path.
+
+No book text was written or generated.

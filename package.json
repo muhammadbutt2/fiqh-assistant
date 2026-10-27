@@ -14,15 +14,23 @@
     "db:migrate": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "worker": "tsx scripts/worker.ts",
-    "inventory:books": "tsx scripts/inventory-books.ts"
+    "inventory:books": "tsx scripts/inventory-books.ts",
+    "ocr:doctor": "tsx scripts/ocr-doctor.ts",
+    "ingest:pilot": "tsx scripts/ingest-local-books.ts --mode pilot",
+    "ingest:full": "tsx scripts/ingest-local-books.ts --mode full",
+    "ocr:calibrate": "tsx scripts/ocr-calibrate.ts",
+    "ocr:index": "tsx scripts/ocr-index.ts",
+    "ingest:open-text": "tsx scripts/ingest-open-text.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@napi-rs/canvas": "^1.0.13",
     "@prisma/client": "^6.17.1",
     "jszip": "^3.10.1",
     "next": "^15.5.6",
+    "pdfjs-dist": "6.4.299",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "unpdf": "^1.0.6",

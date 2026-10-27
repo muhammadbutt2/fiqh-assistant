@@ -5,19 +5,22 @@ import JSZip from "jszip";
 import type { Madhhab } from "@/server/madhhab";
 import { safeStoragePath } from "@/server/security";
 import type { JobRecord, Store, StoredDocument } from "@/server/store";
+import { assessText, scriptForLanguage } from "@/server/ocr/assess";
 import { normalizeForSearch } from "@/server/text";
 import type { StoredChunk } from "@/server/types";
 
 export type ExtractedPage = { pdfPage: number; text: string; printedPage: number | null };
 
-export async function extractPdf(bytes: Uint8Array): Promise<{ pages: ExtractedPage[]; needsOcr: boolean }> {
+export async function extractPdf(bytes: Uint8Array, language = "ar"): Promise<{ pages: ExtractedPage[]; needsOcr: boolean; unusablePages: number[] }> {
   const { extractText, getDocumentProxy } = await import("unpdf");
   const pdf = await getDocumentProxy(bytes);
   const extracted = await extractText(pdf, { mergePages: false });
   const texts = Array.isArray(extracted.text) ? extracted.text : [extracted.text];
+  const expected = scriptForLanguage(language);
   const pages = texts.map((text, index) => ({ pdfPage: index + 1, text: text ?? "", printedPage: null }));
-  const characters = pages.reduce((sum, page) => sum + page.text.trim().length, 0);
-  return { pages, needsOcr: pages.length === 0 || characters < pages.length * 20 };
+  // Judged page by page so a PDF that mixes text pages and scanned pages is not treated as fully searchable.
+  const unusablePages = pages.filter((page) => assessText(page.text, expected).verdict !== "usable").map((page) => page.pdfPage);
+  return { pages, needsOcr: pages.length === 0 || unusablePages.length > 0, unusablePages };
 }
 
 export function htmlToText(html: string): string {
@@ -111,10 +114,12 @@ export async function processJob(
     const bytes = await read(document.storagePath);
     let pages: ExtractedPage[] = [];
     let needsOcr = false;
+    let needsOcrPages: number[] = [];
     if (document.format === "pdf") {
-      const extracted = await extractPdf(bytes);
+      const extracted = await extractPdf(bytes, document.language);
       pages = extracted.pages;
       needsOcr = extracted.needsOcr;
+      needsOcrPages = extracted.unusablePages;
     } else if (document.format === "epub") pages = await extractEpub(bytes);
     else if (document.format === "html") pages = [{ pdfPage: 1, text: htmlToText(Buffer.from(bytes).toString("utf8")), printedPage: null }];
     else pages = [{ pdfPage: 1, text: Buffer.from(bytes).toString("utf8"), printedPage: null }];
@@ -126,8 +131,14 @@ export async function processJob(
         await store.updateJob(jobId, { status: "failed", step: "ocr", error: "OCR_ENGINE_UNAVAILABLE" });
         return;
       }
-      await store.updateDocument(document.id, { ocrStatus: "engine_present_unmeasured", searchable: false });
-      await store.updateJob(jobId, { status: "failed", step: "ocr", error: "OCR_NOT_RUN_ACCURACY_UNMEASURED" });
+      await store.updateDocument(document.id, { ocrStatus: "ocr_pending", searchable: false });
+      const current = (await store.listJobs()).find((item) => item.id === jobId) as JobRecord;
+      await store.updateJob(jobId, {
+        status: "failed",
+        step: "ocr",
+        error: "OCR_PIPELINE_REQUIRED",
+        events: [...current.events, { at: new Date().toISOString(), level: "info", message: `Pages needing OCR: ${pages.filter((page) => needsOcrPages.includes(page.pdfPage)).length}. Run npm run ingest:pilot, then calibrate and index. See docs/ocr-ingestion.md.` }],
+      });
       return;
     }
 
@@ -192,6 +203,9 @@ export async function storeUpload(options: {
   return { document, job };
 }
 
+// Only text that needs no OCR, or OCR that passed a measured calibration, may become searchable.
+export const SEARCHABLE_OCR_STATUSES: ReadonlySet<string> = new Set(["not_needed", "measured_acceptable", "measured_partial"]);
+
 export function applyReview(document: StoredDocument, patch: Partial<StoredDocument>): Partial<StoredDocument> {
   const next = { ...document, ...patch };
   if (next.trustClassification === "approved") {
@@ -201,8 +215,7 @@ export function applyReview(document: StoredDocument, patch: Partial<StoredDocum
   const searchable = next.trustClassification === "approved"
     && next.verificationStatus === "verified"
     && next.rightsStatus === "approved_for_ingestion"
-    && next.ocrStatus !== "needs_ocr"
-    && next.ocrStatus !== "poor";
+    && SEARCHABLE_OCR_STATUSES.has(next.ocrStatus);
   return { ...patch, verificationStatus: next.verificationStatus, searchable };
 }
 

@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import { readFile } from "fs/promises";
 import path from "path";
 import { applyReview, processJob, storeUpload } from "../src/server/ingest";
+import { quarantineUnmeasuredOcr } from "../src/server/ocr/index-pages";
 import { createMemoryStore } from "../src/server/store";
 
 const STORE_PATH = path.resolve(process.env.STORE_PATH || ".data/store.json");
@@ -48,6 +49,7 @@ async function main() {
     console.log(JSON.stringify({ outcome: "extraction_failed", error: finished?.error ?? null }));
     return;
   }
+  await quarantineUnmeasuredOcr(store, document.id, "third_party_ocr_unmeasured");
   const current = (await store.listDocuments()).find((item) => item.id === document.id);
   if (!current) return;
   const patch = applyReview(current, {
@@ -60,7 +62,7 @@ async function main() {
   });
   const updated = await store.updateDocument(document.id, patch);
   const chunks = (await store.listChunks()).filter((chunk) => chunk.documentId === document.id).length;
-  console.log(JSON.stringify({ outcome: updated.searchable ? "indexed" : "not_searchable", chunks, sha256 }));
+  console.log(JSON.stringify({ outcome: updated.searchable ? "indexed" : "stored_not_searchable_ocr_unmeasured", chunks, sha256 }));
 }
 
 main().catch((error: unknown) => {

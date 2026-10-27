@@ -1,9 +1,11 @@
 import { createHash } from "crypto";
 import { readdir, readFile, stat } from "fs/promises";
 import path from "path";
+import { booksDirectory, loadProjectEnv } from "../src/server/ocr/runtime";
 
 async function main() {
-  const root = process.env.BOOKS_DIR || "C:\\Users\\muham\\OneDrive\\Desktop\\hanfi books";
+  loadProjectEnv();
+  const root = booksDirectory();
   const names = (await readdir(root)).filter((name) => name.toLowerCase().endsWith(".pdf")).sort();
   const rows = [];
 

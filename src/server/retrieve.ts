@@ -60,7 +60,8 @@ export function chunkAllowed(chunk: StoredChunk, madhhab: Madhhab, allowTestFixt
   if (chunk.trustClassification !== "approved") return false;
   if (chunk.verificationStatus !== "verified") return false;
   if (chunk.rightsStatus !== "approved_for_ingestion") return false;
-  if (chunk.ocrQuality === "poor" || chunk.ocrQuality === "uncertain") return false;
+  if (chunk.ocrQuality !== "not_needed" && chunk.ocrQuality !== "acceptable") return false;
+  if (chunk.provenance?.extraction === "ocr" && (chunk.ocrQuality !== "acceptable" || chunk.provenance.accuracy.status !== "passed")) return false;
   if (chunk.sourceClass === "unverified") return false;
   if (chunk.translation?.obscuresCondition) return false;
   if (chunk.sourceClass === "comparative") {

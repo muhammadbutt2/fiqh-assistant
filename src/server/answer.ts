@@ -295,6 +295,16 @@ function citationFromChunk(chunk: StoredChunk): PublicCitation {
     verificationStatus: chunk.verificationStatus,
     opinionLabels: chunk.opinionLabels,
     testFixture: chunk.isTestFixture,
+    ...(chunk.provenance
+      ? {
+        provenance: {
+          extraction: chunk.provenance.extraction,
+          ocrAccuracy: chunk.provenance.accuracy.status,
+          ocrModel: chunk.provenance.ocrModel,
+          sourceSha256: chunk.provenance.sourceSha256,
+        },
+      }
+      : {}),
   };
 }
 
