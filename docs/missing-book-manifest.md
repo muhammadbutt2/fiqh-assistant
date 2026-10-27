@@ -70,7 +70,7 @@ State on 27 October 2026, from `npm run ocr:doctor` and the pilot runs. Searchab
 
 | Book id | PDF pages | What the PDF is | Pages OCR'd so far | Reliable human references | Verdict |
 | --- | ---: | --- | ---: | ---: | --- |
-| al-qaduri | 255 | image scan | 12 (ara) | 0 | unmeasured |
+| al-qaduri | 255 | image scan | 36 (ara); 12 calibration pages selected with drafts (16, 38, 48, 59, 75, 91, 96, 117, 133, 165, 208, 224) | 0 | unmeasured; first-book target, blocked on human references, reviewer, edition and rights |
 | bahishti-zewar | 768 | garbled text layer, Nastaliq scan | 4 (urd+ara) and 4 (urd), all failed the confidence screen | 0 | unmeasured |
 | al-hadaya1 (vol. 8 per PDF info) | 374 | image scan | 0 | 0 | not started |
 | alhadayah-2 (vol. 7) | 459 | image scan | 0 | 0 | not started |

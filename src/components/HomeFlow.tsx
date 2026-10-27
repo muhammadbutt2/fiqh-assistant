@@ -1,26 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { listLocales } from "@/data/languages";
+import { listLocales, type SupportedLanguage } from "@/data/languages";
 import { MADHHAB_LABELS, MADHHABS, type Madhhab } from "@/server/madhhab";
 
 const PREFS_KEY = "fiqh.prefs.v1";
 
 export function HomeFlow() {
   const [madhhab, setMadhhab] = useState<Madhhab | null>(null);
-  const [query, setQuery] = useState("");
-  const [localeId, setLocaleId] = useState<string | null>(null);
+  const [localeId, setLocaleId] = useState<SupportedLanguage | null>(null);
   const locales = useMemo(() => listLocales(), []);
-  const visible = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    if (!needle) return locales;
-    return locales.filter((locale) => `${locale.nativeName} ${locale.englishName} ${locale.localeId}`.toLowerCase().includes(needle));
-  }, [locales, query]);
+  const selected = locales.find((item) => item.localeId === localeId) ?? null;
 
   function continueToAsk() {
     if (!madhhab || !localeId) return;
-    const locale = locales.find((item) => item.localeId === localeId);
-    window.localStorage.setItem(PREFS_KEY, JSON.stringify({ madhhab, localeId, direction: locale?.direction, bcp47: locale?.bcp47 }));
+    window.localStorage.setItem(PREFS_KEY, JSON.stringify({ madhhab, localeId, direction: selected?.direction, bcp47: selected?.bcp47 }));
     const draft = (document.getElementById("masla") as HTMLTextAreaElement | null)?.value.trim();
     if (draft) window.sessionStorage.setItem("fiqh.draft", draft);
     window.location.href = "/ask";
@@ -43,17 +37,13 @@ export function HomeFlow() {
       </section>
       <section id="language" aria-labelledby="language-heading">
         <h2 id="language-heading">2. Select an answer language</h2>
-        <p className="meta">The list follows a total-speaker ranking. It is not a judgment about religious importance, and rankings vary.</p>
-        <label>
-          Search languages
-          <input role="combobox" aria-expanded="true" aria-controls="language-list" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Native name or English name" />
-        </label>
-        <ul id="language-list" className="listbox" role="listbox" aria-label="Answer languages">
-          {visible.map((locale) => (
+        <p className="meta">Ask in English, Urdu or Arabic. The books are in Arabic and Urdu; the search runs in those languages and the reply comes back in the language you choose here.</p>
+        <ul id="language-list" className="listbox language-choices" role="listbox" aria-label="Answer languages">
+          {locales.map((locale) => (
             <li key={locale.localeId}>
-              <button type="button" role="option" aria-selected={localeId === locale.localeId} lang={locale.bcp47} dir={locale.direction} onClick={() => setLocaleId(locale.localeId)}>
+              <button type="button" role="option" aria-selected={localeId === locale.localeId} lang={locale.bcp47} dir={locale.direction} className={locale.font === "nastaliq" ? "urdu" : locale.font === "arabic" ? "arabic" : undefined} onClick={() => setLocaleId(locale.localeId)}>
                 <strong>{locale.nativeName}</strong>
-                <span className="meta"> {locale.englishName}</span>
+                <span className="meta" lang="en" dir="ltr"> {locale.englishName}</span>
               </button>
             </li>
           ))}
@@ -61,9 +51,9 @@ export function HomeFlow() {
       </section>
       <section id="ask-panel" aria-labelledby="ask-heading">
         <h2 id="ask-heading">What Would You Like to Know?</h2>
-        <p>Write your question naturally. You can ask in your preferred language. The answer language above does not change your madhhab.</p>
+        <p>Write your question naturally in English, Urdu or Arabic. You do not need to translate it or name a book. The answer language above does not change your madhhab.</p>
         <label htmlFor="masla">Describe your masla here</label>
-        <textarea id="masla" dir="auto" placeholder="Describe your masla here..." />
+        <textarea id="masla" dir={selected?.direction ?? "auto"} lang={selected?.bcp47} className={selected?.font === "nastaliq" ? "urdu" : selected?.font === "arabic" ? "arabic" : undefined} placeholder={selected?.questionPlaceholder ?? "Describe your masla here..."} />
         <p className="meta">Sample suggestions, not rulings.</p>
         <div className="row">
           {["Zakat and savings", "Prayer-related questions", "Fasting and Ramadan"].map((label) => (

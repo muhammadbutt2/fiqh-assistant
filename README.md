@@ -9,7 +9,7 @@ The schools are Hanafi, Maliki, Shafi'i, and Hanbali. A question is searched onl
 ## What is implemented
 
 - Next.js App Router interface for school selection, answer language, asking, citations, account, and admin review.
-- Twenty languages from the Wikipedia table of Ethnologue (2026) total speakers, with separate Simplified and Traditional Chinese locales. Direction follows the locale.
+- Three languages: English, Urdu and Arabic. A question in any of them is turned into Arabic and Urdu search queries (terminology registry, plus a translation provider when one is configured) and the reply comes back in the selected language. Direction follows the language. See [docs/multilingual-search.md](docs/multilingual-search.md).
 - File store by default, and a Prisma / PostgreSQL store when `DATABASE_URL` is set. Docker Compose is included for Postgres with pgvector. The vector column is not created, because no embedding model is configured.
 - Upload, text extraction, chunking, and an OCR job that fails honestly when Tesseract is missing.
 - OpenAI-compatible chat and translation adapters. With no API key they stay unavailable. The service does not invent a ruling.

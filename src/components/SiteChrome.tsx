@@ -3,6 +3,22 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Logo } from "@/components/Logo";
+import { getLocale, isSupportedLanguage } from "@/data/languages";
+import { MADHHAB_LABELS, type Madhhab } from "@/server/madhhab";
+
+const PREFS_KEY = "fiqh.prefs.v1";
+
+function readPrefs(): { madhhab: Madhhab | null; localeId: string | null } {
+  try {
+    const saved = window.localStorage.getItem(PREFS_KEY);
+    if (!saved) return { madhhab: null, localeId: null };
+    const prefs = JSON.parse(saved) as { madhhab?: string; localeId?: string };
+    const madhhab = prefs.madhhab && prefs.madhhab in MADHHAB_LABELS ? (prefs.madhhab as Madhhab) : null;
+    return { madhhab, localeId: isSupportedLanguage(prefs.localeId) ? prefs.localeId : null };
+  } catch {
+    return { madhhab: null, localeId: null };
+  }
+}
 
 const LINKS = [
   ["/", "Home"],
@@ -15,13 +31,23 @@ const LINKS = [
 export function SiteChrome({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [prefs, setPrefs] = useState<{ madhhab: Madhhab | null; localeId: string | null }>({ madhhab: null, localeId: null });
 
   useEffect(() => {
     const saved = window.localStorage.getItem("fiqh.theme");
     const next = saved === "dark" || saved === "light" ? saved : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
     setTheme(next);
     document.documentElement.dataset.theme = next;
+    setPrefs(readPrefs());
+    const onStorage = () => setPrefs(readPrefs());
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", onStorage);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", onStorage);
+    };
   }, []);
+  const locale = prefs.localeId ? getLocale(prefs.localeId) : null;
 
   function toggleTheme() {
     const next = theme === "dark" ? "light" : "dark";
@@ -45,7 +71,11 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
             {LINKS.map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}
           </nav>
           <div className="header-actions">
-            <Link className="text-link" href="/#language">Language</Link>
+            <Link className="text-link" href="/#language" aria-label="Selected school and answer language">
+              {prefs.madhhab ? MADHHAB_LABELS[prefs.madhhab].english : "School"}
+              {" · "}
+              {locale ? <span lang={locale.bcp47} dir={locale.direction}>{locale.nativeName}</span> : "Language"}
+            </Link>
             <button type="button" className="secondary" aria-pressed={theme === "dark"} onClick={toggleTheme}>{theme === "dark" ? "Light" : "Dark"}</button>
             <Link className="button" href="/ask">Ask Your Masla</Link>
             <button type="button" className="secondary menu-button" aria-expanded={open} aria-controls="mobile-nav" onClick={() => setOpen((value) => !value)}>Menu</button>

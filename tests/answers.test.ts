@@ -123,19 +123,23 @@ describe("answer pipeline", () => {
     expect(answer.limitations.join(" ")).toContain("library is not populated");
   });
 
-  it("uses a Hausa draft and keeps the English sentence when translation quality is insufficient", async () => {
+  it("uses the Urdu no-evidence draft and keeps the English sentence alongside it until native review", async () => {
     const answer = await answerQuestion({
       madhhab: "maliki",
-      answerLocale: "ha",
-      question: "Tambaya ba tare da tushe ba",
-      queryLanguage: "ha",
+      answerLocale: "ur",
+      question: "ایسا سوال جس کا کوئی ماخذ نہیں",
       chunks: [],
       chat: unavailableChat(),
     });
     expect(answer.translationFallback).toBe(true);
     expect(answer.canonicalEnglish).toBe(NO_EVIDENCE_EN);
     expect(answer.answer).not.toBe(NO_EVIDENCE_EN);
+    expect(/[\u0600-\u06FF]/.test(answer.answer)).toBe(true);
     expect(answer.nativeReview).toBe("pending");
+  });
+
+  it("rejects an unsupported answer locale instead of guessing", async () => {
+    await expect(answerQuestion({ madhhab: "maliki", answerLocale: "ha", question: "Tambaya", chunks: [], chat: unavailableChat() })).rejects.toThrow("INVALID_LOCALE");
   });
 
   it("rejects a model that switches school, invents a fatwa number, page, or excerpt", async () => {
@@ -327,11 +331,11 @@ describe("cross-lingual cases", () => {
   const urdu = fixture({ id: "ur-src", madhhab: "hanafi", language: "ur", originalText: "TEST FIXTURE تشہد دوسری رکعت میں بھول گیا", isTestFixture: false, title: "TEST FIXTURE Urdu fatwa" });
 
   const cases: { name: string; question: string; queryLanguage?: string; locale: string; chunks: StoredChunk[]; expectId: string }[] = [
-    { name: "Roman Urdu to Arabic source, Spanish answer", question: ROMAN, locale: "es", chunks: [arabic], expectId: "ar-src" },
-    { name: "Spanish question to an Urdu passage, English answer", question: "Olvidé el tashahhud en la segunda rakat", queryLanguage: "es", locale: "en", chunks: [urdu], expectId: "ur-src" },
+    { name: "Roman Urdu to Arabic source, English answer", question: ROMAN, locale: "en", chunks: [arabic], expectId: "ar-src" },
+    { name: "Urdu question to an Arabic passage, Urdu answer", question: "دوسری رکعت میں تشہد بھول گیا", locale: "ur", chunks: [arabic], expectId: "ar-src" },
     { name: "English question to an Urdu fatwa, Arabic answer", question: "I forgot the tashahhud in the second rakat", locale: "ar", chunks: [urdu], expectId: "ur-src" },
     { name: "Arabic question with a supplied English translation, Urdu answer", question: "نسيت التشهد في الركعة الثانية", locale: "ur", chunks: [{ ...arabic, translation: { language: "en", text: "TEST FIXTURE supplied translation of the sitting testimony", status: "supplied_metadata" } }], expectId: "ar-src" },
-    { name: "Hindi question to Arabic book evidence", question: "नमाज़ में तशह्हुद भूल गया", queryLanguage: "hi", locale: "hi", chunks: [arabic], expectId: "ar-src" },
+    { name: "Arabic question to an Urdu passage, English answer", question: "نسيت التشهد في الركعة الثانية", locale: "en", chunks: [urdu], expectId: "ur-src" },
   ];
 
   it.each(cases)("$name", async (item) => {
@@ -350,12 +354,11 @@ describe("cross-lingual cases", () => {
     if (item.chunks[0]?.translation) expect(answer.citations[0]?.translationStatus).toBe("supplied_metadata");
   });
 
-  it("retrieves the same source through a Bengali translated variant", async () => {
+  it("retrieves the same source through a provider-translated Arabic variant for an English question with no registry term", async () => {
     const answer = await answerQuestion({
       madhhab: "hanafi",
-      answerLocale: "bn",
-      question: "আমি দ্বিতীয় রাকাতে তাশাহহুদ ভুলে গেছি",
-      queryLanguage: "bn",
+      answerLocale: "en",
+      question: "I forgot the sitting part in the second unit of the prayer and only remembered after finishing",
       chunks: [arabic],
       translator: {
         id: "double",
@@ -366,6 +369,22 @@ describe("cross-lingual cases", () => {
     });
     expect(answer.sourceIds).toContain("ar-src");
     expect(answer.translationMethod).toBe("provider");
+    expect(answer.querySummary?.arabicQuery).toEqual({ text: "التشهد في الركعة", method: "provider" });
+  });
+
+  it("keeps searching with registry terms when the provider fails", async () => {
+    const answer = await answerQuestion({
+      madhhab: "hanafi",
+      answerLocale: "ur",
+      question: "I forgot the tashahhud in the second rakat",
+      chunks: [arabic],
+      translator: { id: "broken", available: () => true, translate: async () => { throw new Error("boom"); } },
+      chat: unavailableChat(),
+    });
+    expect(answer.translationMethod).toBe("provider_failed");
+    expect(answer.sourceIds).toContain("ar-src");
+    expect(answer.preferredAnswerLanguage).toBe("ur");
+    expect(answer.limitations.join(" ")).toMatch(/translation failed/i);
   });
 
   it("preserves a negation in mixed Arabic and English", () => {

@@ -178,8 +178,15 @@ textarea { min-height: 9rem; resize: vertical; }
 .listbox button { width: 100%; text-align: start; background: transparent; color: var(--ink); border-radius: 10px; }
 .listbox button[aria-selected="true"] { background: var(--surface); box-shadow: inset 0 0 0 2px var(--forest); }
 
+.language-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; max-height: none; overflow: visible; }
+.language-choices li { display: contents; }
+.language-choices button { padding: 1rem; border: 1px solid var(--line); text-align: center; font-size: 1.1rem; }
+.language-choices button strong { display: block; font-size: 1.35rem; }
+@media (max-width: 640px) { .language-choices { grid-template-columns: 1fr; } }
+
 .citation { padding: 0.9rem 1rem; margin-top: 0.8rem; }
 .excerpt { white-space: pre-wrap; }
+blockquote.excerpt { margin: 0.5rem 0; padding: 0.6rem 0.9rem; border-inline-start: 3px solid var(--gold); background: var(--surface); }
 .alert { color: var(--danger); }
 .status { padding: 0.8rem 1rem; border-left: 4px solid var(--gold); background: var(--surface); }
 [dir="rtl"] .status { border-left: 0; border-right: 4px solid var(--gold); }

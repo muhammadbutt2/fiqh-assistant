@@ -11,7 +11,7 @@ export default function Page() {
         <div>
           <p className="eyebrow">Islamic knowledge · Rooted in fiqh</p>
           <h1>Find Clarity in Your <em>Islamic Masail</em>.</h1>
-          <p className="lede">Ask your question in your own language. Explore carefully sourced fiqh guidance within your chosen madhhab, with references, explanations, and transparent source information.</p>
+          <p className="lede">Ask your question in your own language — English, Urdu or Arabic. Explore carefully sourced fiqh guidance within your chosen madhhab, with references, explanations, and transparent source information.</p>
           <div className="row">
             <Link className="button" href="/ask">Ask Your Masla</Link>
             <Link className="button secondary" href="#explore">Explore Masail</Link>
@@ -34,7 +34,7 @@ export default function Page() {
         <h2>Clear Answers. Transparent Sources.</h2>
         <ol>
           <li><strong>Choose Your Madhhab</strong><p>Select the fiqh tradition you want the assistant to follow.</p></li>
-          <li><strong>Ask in Your Language</strong><p>Submit your question in a supported language.</p></li>
+          <li><strong>Ask in English, Urdu or Arabic</strong><p>Write naturally. The question is turned into Arabic and Urdu search queries for you.</p></li>
           <li><strong>Review the Evidence</strong><p>Explore the answer, cited sources, original excerpts, and any limitations.</p></li>
         </ol>
       </section>
@@ -42,7 +42,7 @@ export default function Page() {
         <h2>Evidence Matters.</h2>
         <article><h3>Madhhab-Aware Research</h3><p>Retrieval is restricted to your selected madhhab for madhhab-specific rulings.</p></article>
         <article><h3>Cited References</h3><p>Answers link to retrieved sources. Page numbers appear only when the record has them.</p></article>
-        <article><h3>Multilingual Access</h3><p>Ask in your language. Arabic and Urdu search uses terminology, and a translation provider when one is configured.</p></article>
+        <article><h3>English, Urdu and Arabic</h3><p>Ask in any of the three. The books are Arabic and Urdu; the search runs in those languages and the reply comes back in the language you choose.</p></article>
         <article><h3>Honest Uncertainty</h3><p>When evidence is insufficient, the assistant says so. It does not invent a ruling.</p></article>
       </section>
       <section className="wrap section">

@@ -20,7 +20,8 @@
     "ingest:full": "tsx scripts/ingest-local-books.ts --mode full",
     "ocr:calibrate": "tsx scripts/ocr-calibrate.ts",
     "ocr:index": "tsx scripts/ocr-index.ts",
-    "ingest:open-text": "tsx scripts/ingest-open-text.ts"
+    "ingest:open-text": "tsx scripts/ingest-open-text.ts",
+    "eval:real-book": "tsx scripts/eval-real-book.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

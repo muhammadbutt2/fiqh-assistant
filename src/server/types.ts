@@ -146,4 +146,19 @@ export type PublicAnswer = {
   highStakes: boolean;
   unresolvedDisagreement: boolean;
   candidates?: string[];
+  /** How the question was turned into Arabic and Urdu search queries. Search aids, not rulings. */
+  querySummary?: QuerySummary;
+};
+
+export type QuerySummary = {
+  detectedLanguage: string;
+  detectionConfidence: "high" | "medium" | "low";
+  arabicQuery: { text: string | null; method: "source_language" | "terminology" | "provider" | "none" };
+  urduQuery: { text: string | null; method: "source_language" | "terminology" | "provider" | "none" };
+  concepts: string[];
+  negations: string[];
+  conditions: string[];
+  numbers: string[];
+  ambiguities: string[];
+  warnings: string[];
 };

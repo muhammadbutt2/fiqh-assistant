@@ -1,55 +1,88 @@
-# Multilingual search and Online Mufti interface
+# Three-language search: English, Urdu and Arabic
 
-Written 27 October 2026. This is what the app does now. It is not a claim that every language retrieves the real books well.
+Updated 27 October 2026. This version of Online Mufti supports exactly three user-facing languages: English (`en`), Urdu (`ur`) and Arabic (`ar`). The earlier twenty-language list has been removed from the registry, the interface, the API and the tests. The books are Arabic and Urdu. English is an input and output language that is bridged into Arabic and Urdu search.
+
+Nothing in this document is a claim that a real book is searchable. See "What is searchable" below.
+
+## Where the languages live
+
+- `src/data/languages.ts` is the single registry: id, native name, direction, font, question placeholder, and whether the language is a *source* language (Arabic, Urdu) or *bridged* (English). `isSupportedLanguage`, `defaultAnswerLocale` and `directionFor` are the only helpers the rest of the code uses.
+- `src/data/messages.ts` holds the fixed messages and interface strings for the three languages. Urdu and Arabic drafts are marked `nativeReview: pending`; the English sentence is kept alongside them until a native speaker signs off.
+- `GET /api/languages` returns `supported: ["en","ur","ar"]`, `sourceLanguages: ["ar","ur"]` and the locale rows.
 
 ## Query flow
 
-1. The original question is stored unchanged.
-2. `detectLanguage` estimates the language and script, including Arabic versus Urdu when Urdu-specific letters are present, Roman Urdu, Devanagari, Bengali, Han, kana, and Cyrillic. Latin questions use a small word list for English, Spanish, and French. Uncertain detection still runs the search.
-3. `buildVariants` always keeps the original and a normalized copy. If a term in `src/data/glossary.ts` matches, it adds an Arabic query and an Urdu query made of those terms and their search phrases. A zakat question that also mentions savings adds the search phrases `زكاة المال المدخر` and `جمع شدہ مال پر زکوٰۃ`. Those phrases are terminology, not a ruling and not a full-sentence translation.
-4. If `TRANSLATION` provider credentials are configured, `answerQuestion` also adds provider translations into Arabic and Urdu. The default install has no provider, so this step does not run.
-5. `selectChunks` searches approved chunks for the selected madhhab with lexical overlap. Arabic and Urdu variants are weighted slightly higher. Madhhab, rights, verification, and OCR gates are unchanged. Unmeasured OCR cannot be cited.
-6. Semantic embeddings are not configured. `semanticRetrieval` stays `unavailable`. No vector index was mixed in.
-7. With no chat model, the reply shows the retrieved excerpt and says a ruling was not generated. With a configured model, the old citation checks still apply. The answer language is the user's selected locale and is independent of the question language.
+The server-side service is `processQuestion` / `processQuestionWithProvider` in `src/server/query.ts`. `answerQuestion` and the admin diagnostic both call it. It returns a structured object validated by `processedQuerySchema` (zod):
 
-Changing language does not change the madhhab. A school change still clears the current answer.
+| Field | Meaning |
+| --- | --- |
+| `original` | The question exactly as typed. Never edited. |
+| `detectedLanguage`, `detectionConfidence`, `detectionUncertain`, `mixedScript` | From `src/server/detect.ts`. Labels: `ar`, `ur`, `en`, `ur-Latn` (Roman Urdu), `und`. |
+| `normalized` | Unicode search normalization (harakat removed, alef/yeh/kaf/heh and digits folded). Used for matching only. |
+| `arabicQuery`, `urduQuery` | `{ text, method, model }`. `method` is `source_language` (the question itself), `terminology` (registry terms), `provider` (configured translator) or `none`. |
+| `englishIntermediate` | The English question, or the English registry terms for an Urdu/Arabic question. |
+| `concepts` | Registry concepts recognised, with their notes and `relatedDistinct` lists. |
+| `entities` | Numbers, quantities, conditions, negations and time references found in the question. |
+| `ambiguities` | For example "zakat and sadaqah are both mentioned", "validity and obligation are both asked", "language uncertain". |
+| `warnings` | For example "the Arabic query is a terminology string, not a translation". |
+| `variants` | The ordered retrieval variants: original, normalized, `glossary-ar`, `glossary-ur`, `glossary-en`, and `translation-*` when a provider ran. |
+
+### Example A, English
+
+`Do I have to pay zakat on my savings?` → detected `en`; concepts `zakat`, `intent_obligation`, savings context; Arabic query (terminology) `زكاة المال المدخر زكاة زكاة المال يجب تجب واجب`; Urdu query (terminology) `جمع شدہ مال پر زکوٰۃ زکوٰۃ مال کی زکوٰۃ واجب لازم`. These are search strings. They are not the sentence `هل تجب الزكاة على المال المدخر؟`; that sentence only appears when a translation provider is configured.
+
+### Example B, Urdu
+
+`کیا میرے جمع شدہ پیسوں پر زکوٰۃ واجب ہے؟` → detected `ur` (high confidence, Urdu letters and function words); Urdu query is the normalized question itself (`source_language`); Arabic query is terminology (`زكاة المال المدخر زكاة …`); English intermediate is the registry's English terms.
+
+### Example C, Arabic
+
+`هل تجب الزكاة على المال المدخر؟` → detected `ar`; Arabic query is the question itself; Urdu query is terminology (`جمع شدہ مال پر زکوٰۃ زکوٰۃ …`).
+
+### Fiqh meaning is preserved, not guessed
+
+- The registry in `src/data/glossary.ts` is concept-based. Each concept has `en`, `ar`, `ur`, Arabic and Urdu variants, English expressions, transliterations, optional context phrases, `relatedDistinct` and a note. Sadaqah is never rewritten as zakat; fard, wajib, sunnah, mustahabb, makruh and haram are separate concepts; validity, obligation and permissibility are separate *question intents*.
+- Latin forms match whole words only (`riba` does not match `tribal`). Arabic-script forms match after normalization and accept attached prefixes such as `ال`.
+- Negations (`not`, `without`, `نہیں`, `بغیر`, `لا`, `لم`, `بلا` …), conditions (`if`, `unless`, `اگر`, `إذا`, `إلا` …), numbers and quantities are extracted and passed to the answer step so they are not dropped. `ما` is not treated as a negation because `ما حكم` is a question form.
+- When no registry term is recognised and no provider is configured, the Arabic and Urdu queries are `null` with a warning. Nothing is invented.
+
+## Translation provider
+
+`src/server/ai.ts` has a provider-independent `Translator` and `ChatClient`. `src/server/runtime.ts` wires an OpenAI-compatible endpoint only when `AI_API_KEY` and `AI_CHAT_MODEL` (or `AI_TRANSLATION_MODEL`) are set. Nothing is configured by default, so:
+
+- Query translation: terminology only.
+- Answer generation: not run. The reply shows the retrieved excerpt and says no ruling was generated.
+
+Grok's consumer site is not used and not scraped. No paid API is required. Whether a configured endpoint is local, free-tier or paid depends on what you point `AI_BASE_URL` at; document it in your deployment notes. Provider translations are added as extra retrieval variants; they never replace the original question and never bypass the madhhab filter.
+
+## Retrieval
+
+`selectChunks` in `src/server/retrieve.ts` searches the original wording, the normalized form, the registry Arabic and Urdu strings and any provider translation, merges and de-duplicates, and ranks by lexical overlap with a small boost for Arabic/Urdu variants and for source class. Only chunks that pass `chunkAllowed` are candidates: searchable, approved, verified, rights approved, OCR `not_needed` or `acceptable` with a passed accuracy measurement, and the selected madhhab (or a comparative source explicitly labelled for it). `answerQuestion` re-checks the madhhab after selection. Semantic embeddings are not configured and `semanticRetrieval` stays `unavailable`.
+
+## Answer language
+
+The answer is written in the selected response language regardless of the question language. If no language is saved, `POST /api/ask` may omit `answerLocale`; the server then uses the detected question language when it is `en`, `ur` or `ar` (Roman Urdu → Urdu), otherwise `DEFAULT_ANSWER_LOCALE` or English. Any other value is rejected with `INVALID_LOCALE`. Direction is set per page (`dir` on the article), per field (textarea follows the selected language) and per quotation (an Arabic excerpt inside an English answer stays RTL).
 
 ## What was measured
 
-`tests/cross-language.test.ts` uses one synthetic Hanafi passage and the same text labelled Maliki. It is not a real book.
+`tests/cross-language.test.ts` and `tests/query.test.ts` run on synthetic passages. For the zakat-on-savings question in English, Urdu (two phrasings), Roman Urdu and Arabic (two phrasings), both the Hanafi Arabic passage and the Hanafi Urdu passage are in the top 5; the Maliki copy and the unmeasured-OCR copy are excluded; sadaqah is not rewritten as zakat; fard and wajib stay separate. That is terminology retrieval on fixtures. It says nothing about the real books.
 
-For the same zakat-on-savings question in English, Urdu script, Roman Urdu, Arabic, Spanish, French, Turkish, Chinese, Hindi, and Bengali, the Hanafi passage was in the top 5. The Maliki copy and an unmeasured-OCR copy were excluded. Sadaqah was not rewritten as zakat.
-
-That is terminology retrieval on a fixture. It is not evidence of embedding quality, and it was not run on al-Quduri, al-Hidayah, al-Fatawa al-Hindiyyah, or Bahishti Zewar.
+`npm run eval:real-book` runs five English/Urdu/Arabic question triplets against the **approved** index only and reports top-5 / top-10 hits. On 27 October 2026 it reported `NOT MEASURABLE`: 0 approved chunks for every madhhab.
 
 ## What is searchable
 
-No local book is searchable. OCR of al-Quduri (12 pages) and Bahishti Zewar (8 page-runs) is still unmeasured. The Minhaj archive.org text remains quarantined. Approved searchable chunks: 0.
-
-## Languages
-
-The interface list is still the existing 20-language registry (21 locales, because Chinese has two scripts). Per-language limits are on `/methodology`, from `src/data/retrieval-support.ts`.
-
-Whole-sentence translation into Arabic and Urdu needs an optional server provider. Until then, only listed terms cross languages. Japanese has script detection and no terminology. Turkish is not an answer language; a Turkish question can still match `zekât`.
+Nothing. The store holds 16 documents and 868 chunks (the quarantined archive.org Minhaj text); approved searchable chunks: 0 for all four madhhabs. Al-Quduri has 36 OCR'd pilot pages and 12 selected calibration pages with drafts, but 0 human reference transcriptions, so its OCR accuracy is unmeasured and it is not indexed. See `docs/ocr-ingestion.md` for the exact remaining steps.
 
 ## Admin trace
 
-Signed-in admins can POST `/api/admin/diagnose` with `{ "question", "madhhab" }`, or use Retrieval trace on `/admin`. It shows detection, the Arabic query, the Urdu query, methods, and candidate scores. Ordinary users do not get this route.
-
-## Interface
-
-The public pages use the Online Mufti name, the emerald and ivory palette, a simple arch-and-book mark, and pages for methodology, privacy, and terms. Madhhab choice is still required. Sample topic buttons only fill the question box. They are labelled as samples, not rulings. Book rows on the home page use the registry status, which is rights review or not located.
+Signed-in admins can POST `/api/admin/diagnose` with `{ "question", "madhhab" }` or use Retrieval trace on `/admin`. It returns the full processed query (language, confidence, Arabic and Urdu queries with their methods, concepts, entities, ambiguities, warnings), the approved pool size for the madhhab, the number of unapproved candidates held back, and the ranked candidates with scores.
 
 ## Commands
 
 ```powershell
 npm test
 npm run typecheck
+npm run lint
+npm run eval:real-book
 npm run dev
 ```
-
-Open `http://localhost:3000`. Admin diagnosis needs `AUTH_SECRET` and `ADMIN_PASSWORD`.
-
-## Not done, on purpose
-
-The remaining pages of the local PDFs were not OCR'd in this pass. OCR output still cannot be cited until human references exist and calibration passes. No embedding model was added, because none is configured and a silent model change would need its own index. No paid API was turned on.

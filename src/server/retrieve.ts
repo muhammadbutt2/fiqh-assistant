@@ -1,5 +1,6 @@
 import type { Madhhab } from "@/server/madhhab";
-import { hasNegation, tokenize } from "@/server/text";
+import { hasNegation } from "@/server/detect";
+import { tokenize } from "@/server/normalize";
 import type { QueryVariant, StoredChunk } from "@/server/types";
 
 const CLASS_WEIGHT: Record<StoredChunk["sourceClass"], number> = {

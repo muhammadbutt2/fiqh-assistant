@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "crypto";
 import { z } from "zod";
-import { listLocales } from "@/data/languages";
+import { defaultAnswerLocale, isSupportedLanguage, listLocales } from "@/data/languages";
+import { detectLanguage } from "@/server/detect";
 import { INSTITUTIONS } from "@/data/sources";
 import { answerQuestion } from "@/server/answer";
 import { diagnoseRetrieval } from "@/server/diagnose";
@@ -24,12 +25,18 @@ export type AppDeps = {
 
 const askSchema = z.object({
   madhhab: z.string(),
-  answerLocale: z.string(),
+  /** One of en, ur, ar. When omitted, the detected question language is used if it is supported, else English. */
+  answerLocale: z.string().optional(),
   question: z.string().min(1).max(4000).optional(),
   queryLanguage: z.string().optional(),
   acceptUncertainDetection: z.boolean().optional(),
   previousQuestionId: z.string().optional(),
 });
+
+function envDefaultLocale(): "en" | "ur" | "ar" {
+  const configured = process.env.DEFAULT_ANSWER_LOCALE;
+  return isSupportedLanguage(configured) ? configured : "en";
+}
 
 export function json(body: unknown, status = 200, headers?: HeadersInit): Response {
   return new Response(JSON.stringify(body), {
@@ -68,10 +75,12 @@ export async function postAsk(request: Request, deps: AppDeps): Promise<Response
       frozen = (await deps.store.listChunks()).filter((chunk) => ids.has(chunk.id));
     }
     if (!question) return json({ error: "INVALID_REQUEST" }, 400);
+    if (parsed.data.answerLocale !== undefined && !isSupportedLanguage(parsed.data.answerLocale)) return json({ error: "INVALID_LOCALE" }, 400);
+    const answerLocale = parsed.data.answerLocale ?? defaultAnswerLocale(parsed.data.queryLanguage ?? detectLanguage(question).language, envDefaultLocale());
     const stats = await deps.store.stats();
     const answer = await answerQuestion({
       madhhab: parsed.data.madhhab,
-      answerLocale: parsed.data.answerLocale,
+      answerLocale,
       question,
       queryLanguage: parsed.data.queryLanguage,
       acceptUncertainDetection: parsed.data.acceptUncertainDetection,
@@ -90,7 +99,7 @@ export async function postAsk(request: Request, deps: AppDeps): Promise<Response
       question,
       questionSha256: createHash("sha256").update(question).digest("hex"),
       madhhab: parseMadhhab(parsed.data.madhhab),
-      answerLocale: parsed.data.answerLocale,
+      answerLocale,
       chunkIds: answer.sourceIds,
       answer,
       createdAt: new Date().toISOString(),

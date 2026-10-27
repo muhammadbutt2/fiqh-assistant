@@ -3,8 +3,8 @@ import { tmpdir } from "os";
 import path from "path";
 import { describe, expect, it } from "vitest";
 import { resolveAuthSecret } from "@/server/runtime";
-import { listLanguages, listLocales, SPEAKER_RANKING } from "@/data/languages";
-import { getCopy, messageLocales, NO_EVIDENCE_EN } from "@/data/messages";
+import { defaultAnswerLocale, isSupportedLanguage, listLanguages, listLocales, SOURCE_LANGUAGES, SUPPORTED_LANGUAGES } from "@/data/languages";
+import { getCopy, messageLocales, NO_EVIDENCE_EN, uiStrings } from "@/data/messages";
 import { INSTITUTIONS, LOCAL_BOOK_FILES } from "@/data/sources";
 import { MADHHABS, parseMadhhab } from "@/server/madhhab";
 
@@ -16,44 +16,55 @@ describe("schools and languages", () => {
     expect(() => parseMadhhab("Ja'fari")).toThrow("INVALID_MADHHAB");
   });
 
-  it("uses the displayed Ethnologue 2026 totals from the Wikipedia table", () => {
+  it("offers exactly English, Urdu and Arabic and nothing else", () => {
     const languages = listLanguages();
-    expect(languages).toHaveLength(20);
-    expect(languages.map((item) => item.iso6393)).toEqual([
-      "eng", "cmn", "hin", "spa", "arb", "fra", "ben", "por", "ind", "urd",
-      "rus", "deu", "jpn", "pcm", "arz", "mar", "vie", "tel", "swh", "hau",
-    ]);
-    expect(languages.map((item) => item.totalMillions)).toEqual([
-      1493, 1183, 611, 561, 335, 334, 274, 269, 255, 246,
-      210, 133, 126, 121, 118, 99, 97, 96, 95, 94,
-    ]);
-    expect(languages.find((item) => item.id === "en")).toMatchObject({ l1Millions: 372, l2Millions: 1121 });
-    expect(languages.some((item) => item.englishName === "Turkish" || item.englishName === "Punjabi" || item.englishName === "Tamil")).toBe(false);
-    expect(SPEAKER_RANKING.excludedNextRow.englishName).toBe("Turkish");
-    expect(SPEAKER_RANKING.ethnologueEditionNote).toContain("403");
-    expect(listLocales()).toHaveLength(21);
-    expect(listLocales().map((item) => item.localeId)).toContain("zh-Hans");
-    expect(listLocales().map((item) => item.localeId)).toContain("zh-Hant");
+    expect(languages.map((item) => item.id)).toEqual(["en", "ur", "ar"]);
+    expect(languages.map((item) => item.iso6393)).toEqual(["eng", "urd", "arb"]);
+    expect(languages.map((item) => item.nativeName)).toEqual(["English", "اردو", "العربية"]);
+    expect(SUPPORTED_LANGUAGES).toEqual(["en", "ur", "ar"]);
+    expect(SOURCE_LANGUAGES).toEqual(["ar", "ur"]);
+    expect(listLocales()).toHaveLength(3);
+    const text = JSON.stringify(languages);
+    for (const banned of ["Spanish", "Chinese", "Hindi", "Bengali", "French", "Hausa", "zh-Hans", "ar-EG", "Turkish"]) expect(text).not.toContain(banned);
+    expect(isSupportedLanguage("es")).toBe(false);
+    expect(isSupportedLanguage("ur")).toBe(true);
+    expect(messageLocales()).toEqual(["en", "ur", "ar"]);
+    expect(() => getCopy("es")).toThrow("INVALID_LOCALE");
   });
 
-  it("sets direction and a no-evidence message for every locale", () => {
+  it("defaults the answer language to the detected question language only when supported", () => {
+    expect(defaultAnswerLocale("ar")).toBe("ar");
+    expect(defaultAnswerLocale("ur")).toBe("ur");
+    expect(defaultAnswerLocale("ur-Latn")).toBe("ur");
+    expect(defaultAnswerLocale("en")).toBe("en");
+    expect(defaultAnswerLocale("und")).toBe("en");
+    expect(defaultAnswerLocale("es")).toBe("en");
+    expect(defaultAnswerLocale(null, "ur")).toBe("ur");
+  });
+
+  it("sets direction, placeholder, interface strings and a no-evidence message for every locale", () => {
     for (const locale of listLocales()) {
       const copy = getCopy(locale.localeId);
       expect(copy.noEvidence.length).toBeGreaterThan(20);
-      expect(messageLocales()).toContain(locale.localeId);
+      expect(copy.ui.findAnswer.length).toBeGreaterThan(2);
+      expect(uiStrings(locale.localeId)).toEqual(copy.ui);
+      expect(locale.questionPlaceholder.length).toBeGreaterThan(10);
       if (locale.localeId === "en") {
         expect(copy.noEvidence).toBe(NO_EVIDENCE_EN);
         expect(copy.nativeReview).toBe("author");
         expect(copy.canonicalEnglish).toBeNull();
+        expect(locale.direction).toBe("ltr");
+        expect(locale.retrievalRole).toBe("bridged");
       } else {
         expect(copy.nativeReview).toBe("pending");
         expect(copy.canonicalEnglish).toBe(NO_EVIDENCE_EN);
-      }
-      if (locale.localeId === "ar" || locale.localeId === "ur" || locale.localeId === "ar-EG") {
         expect(locale.direction).toBe("rtl");
+        expect(locale.retrievalRole).toBe("source");
+        expect(/[\u0600-\u06FF]/.test(copy.noEvidence)).toBe(true);
+        expect(/[\u0600-\u06FF]/.test(locale.questionPlaceholder)).toBe(true);
       }
-      if (["en", "es", "fr"].includes(locale.localeId)) expect(locale.direction).toBe("ltr");
     }
+    expect(uiStrings("es").findAnswer).toBe("Find Answer");
   });
 
   it("keeps a local account secret when AUTH_SECRET is empty", () => {

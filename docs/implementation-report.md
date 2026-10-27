@@ -64,3 +64,32 @@ Verified on this machine on 27 October 2026:
 Counts: extracted 12 pages of al-qaduri and 8 page-runs of Bahishti Zewar. Evaluated 0. Approved 0. Indexed 0. The corpus is not ready.
 
 Not verified: OCR accuracy for any book, rotation detection on real rotated pages, a full-book OCR run, and a browser pass on the ask page after the change.
+
+## Update 2026-10-27 (later): English, Urdu and Arabic only
+
+Full detail is in `docs/multilingual-search.md`.
+
+Files changed:
+
+- `src/data/languages.ts` rewritten: three languages (`en`, `ur`, `ar`), direction, font, native placeholder, source/bridged role, `isSupportedLanguage`, `defaultAnswerLocale`, `directionFor`. The Ethnologue ranking and the other 17 languages are gone.
+- `src/data/messages.ts`: messages and interface strings for the three languages only; `getCopy` rejects anything else.
+- `src/data/glossary.ts` rewritten as a concept registry (en/ar/ur canonical terms, variants, transliterations, context phrases, `relatedDistinct`, notes) covering zakat, sadaqah, sadaqat al-fitr, nisab, hawl, salah, dua, tashahhud, rak'ah, sajdat al-sahw, wudu, ghusl, tayammum, taharah, sawm, qada, kaffarah, fidyah, hajj, umrah, nikah, mahr, wali, talaq, khula, faskh, iddah, riba, qard, dayn, bay', ijarah, mirath, wasiyyah, yamin, nadhr, halal, haram, fard, wajib, sunnah, mustahabb, makruh, mubah, sahih, batil, and three question intents (obligation, validity, permissibility). Latin forms match whole words; Arabic-script forms match after normalization.
+- New `src/server/normalize.ts`, `src/server/detect.ts` (three-language detection with confidence, Roman Urdu, negation words, high-stakes patterns) and `src/server/query.ts` (`processQuestion`, `processQuestionWithProvider`, `processedQuerySchema`). `src/server/text.ts` is now a facade.
+- `src/server/answer.ts` uses the query service, re-checks the madhhab after selection, passes negations/conditions/numbers/concepts to the model, carries a response-language instruction per language, and returns `querySummary`. Prompt and generation version `2026-10-27.1`.
+- `src/server/handlers.ts`: `answerLocale` optional; defaults to the detected question language when supported, else `DEFAULT_ANSWER_LOCALE`/English; any other value is `INVALID_LOCALE`.
+- `src/server/diagnose.ts`: full processed query, approved pool size and held-back candidate count.
+- UI: `HomeFlow` shows three language cards and switches the question box direction and placeholder; `AskScreen` offers the three languages plus "same as my question", RTL for Urdu/Arabic, native button labels; `AnswerPanel` labels translations, shows printed page or a clearly labelled PDF page index, keeps Arabic/Urdu quotations RTL inside an English answer, and has a "How this question was searched" panel; `SiteChrome` header shows the selected school and language. `/methodology`, `/api/languages`, `src/data/retrieval-support.ts` updated.
+- Tests: `tests/registry.test.ts`, `tests/ui.test.tsx`, `tests/cross-language.test.ts`, `tests/answers.test.ts` rewritten for three languages; new `tests/query.test.ts`.
+- New `scripts/eval-real-book.ts` (`npm run eval:real-book`): English/Urdu/Arabic triplets against the approved index only, top-5 / top-10 report.
+- Docs and `.env.example` updated.
+
+Verified on this machine on 27 October 2026:
+
+- `npm test`: 124 tests passed in 9 files.
+- `npm run typecheck` and `npm run lint`: clean.
+- `npm run ingest:pilot -- --book al-qaduri --limit 24`: 24 more pages OCR'd (36 total), 0 failed. `ocr:calibrate -- select --with-draft`: 12 sample pages chosen (16, 38, 48, 59, 75, 91, 96, 117, 133, 165, 208, 224) with drafts written. `ocr:calibrate -- evaluate`: verdict `unmeasured`, 0 reliable references.
+- `npm run eval:real-book`: NOT MEASURABLE, 0 approved chunks for every madhhab.
+
+Counts: documents 16, chunks 868 (all quarantined Minhaj), approved searchable chunks 0, approved documents 0. Measured OCR accuracy: none. Real-book retrieval figures: none.
+
+Blocked on people, not code: al-Quduri needs at least 10 human reference transcriptions of the selected pages (checked against the page images), a named reviewer, the edition as printed, and a rights/metadata approval. None of that was invented.

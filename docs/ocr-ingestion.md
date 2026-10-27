@@ -179,3 +179,22 @@ These are observations, not accuracy measurements.
 - `Bahishti Zewar`: 4 pages OCR'd under `urd+ara` and under `urd`. Confidence was 29 to 39 and every page failed the screen. The pages are dense Nastaliq script with a watermark. Tesseract is a poor fit. This book needs a different OCR engine or a text source, and then the same measurement.
 - Rotation detection (`OCR_DETECT_ROTATION`, uses `osd`) is implemented and unit-tested only. It has not been tried on a real rotated page.
 - The `al-qaduri.pdf` copyright page appears to name an edition. That reading is unverified and is not recorded as edition metadata.
+
+## Status on 27 October 2026 (evening): al-Quduri calibration set prepared, still unmeasured
+
+- `al-qaduri.pdf`: 36 pages OCR'd with `ara` (first pilot 12, second pilot 24 more; 0 failures; mean Tesseract confidence 82 to 89, which is not accuracy).
+- `ocr:calibrate -- select --book al-qaduri --with-draft` chose 12 pages: 16, 38, 48, 59, 75, 91, 96, 117, 133, 165, 208, 224 (strata: front, middle, back, spread, layout_complex, clean). Raw OCR drafts for each are in `.data/ocr/<sha>/<config>/calibration/draft/`.
+- Human references on disk: 0. Reviewer: none recorded. Edition: not recorded. Rights: `rights_review_required`.
+- Verdict: `unmeasured`. The book is not indexed and not searchable. `ocr:index -- book --book al-qaduri` would store 0 searchable chunks.
+
+To finish al-Quduri, a person must:
+
+1. Open the PDF at each selected page and transcribe the full page (or correct the draft against the page image; an unchanged draft is rejected).
+2. `npm run ocr:calibrate -- import --book al-qaduri --page <n> --file <transcription.txt> --reviewer "<name>" --edition "<edition as printed>"` for at least 10 pages.
+3. `npm run ocr:calibrate -- evaluate --book al-qaduri`. The gate is CER <= 5%, WER <= 15%, critical-token errors <= 3%, per-page CER <= 15%, strict metric. Thresholds were not changed.
+4. If it passes: `npm run ingest:full -- --book al-qaduri --confirm-full`, then `npm run ocr:index -- book --book al-qaduri --approve "<rights and metadata note>" --reviewer "<name>"`.
+5. `npm run eval:real-book -- --book quduri` to get real top-5 / top-10 numbers for English, Urdu and Arabic questions.
+
+## Real-book retrieval evaluation
+
+`npm run eval:real-book -- [--madhhab hanafi] [--book <title part>]` runs five English/Urdu/Arabic question triplets against approved chunks only and writes a JSON report to `.data/eval/`. It reports `NOT MEASURABLE` while the approved index is empty, which is the current state.
