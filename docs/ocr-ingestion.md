@@ -195,6 +195,26 @@ To finish al-Quduri, a person must:
 4. If it passes: `npm run ingest:full -- --book al-qaduri --confirm-full`, then `npm run ocr:index -- book --book al-qaduri --approve "<rights and metadata note>" --reviewer "<name>"`.
 5. `npm run eval:real-book -- --book quduri` to get real top-5 / top-10 numbers for English, Urdu and Arabic questions.
 
+## Status on 27 October 2026 (later): two new Bahishti Zewar files
+
+Two files were added to the books folder. Neither changes the searchable count, which is still 0.
+
+### `BahishtiZewar.pdf` (book id `bahishti-zewar-en`)
+
+- 47,402,421 bytes, SHA-256 `61d2ba3caaebc15957b3c018155e683bdca49a2393eebbeff3105b1d29eebaa9`, 890 pages, no embedded text, PDF info Title and Author empty.
+- It is not a second Urdu scan. It is the English translation. Under the default `urd+ara` an 8-page pilot (pages 56 to 835) returned confidence 44 to 52 and text that was Arabic-model noise over Latin letters (`عط` for "the"). Under `eng` the same scan reads at 93 to 94 confidence and the script check reports 0% Arabic letters, which is correct for English.
+- OCR of the title and imprint pages (PDF pages 4 to 8) reads: "Heavenly Ornaments (Bahishti Zewar)", "edited and translated by Maulana Muhammad Mahomedy", Zam Zam Publishers, Karachi, "Second Edition: February 2005", ISBN 969-8863-15-X. PDF page 8 is a permission letter from a South African madrasah to Zam Zam Publishers. These are OCR readings of printed pages; nobody has checked them against the book, and they are not recorded as approved edition metadata. The permission on page 8 is Zam Zam's, not ours.
+- Printed page = PDF page - 9 on every page sampled (PDF 25 = printed 16, PDF 446 = printed 437). That offset is an observation from a handful of pages, not a stored page map.
+- `src/server/ocr/books.ts` now gives this file its own id, language `en` and OCR language `eng`, so the Latin-script screen applies. The Urdu scan keeps `bahishti-zewar`.
+- Pages OCR'd so far: 8 (urd+ara, wrong language, all failed the screen), 3 (eng, failed only on the Arabic-script check that applied before the rule change), 12 (eng under the new rule: 1 to 11 and 25, 0 failures). All of it is `unmeasured` and not searchable.
+- Status: `rights_review_required`. The translation carries its own copyright (Zam Zam Publishers, per the imprint page). Two further decisions are needed before this file could ever be indexed, and neither is a technical step: (1) whether an English translation of a secondary Urdu manual may be cited as evidence at all, given that answers are meant to rest on Arabic and Urdu source text and English is the bridged language; (2) if yes, rights clearance for the translation. Calibration (10+ human reference pages, reviewer, edition) applies as for every book. Nothing here was indexed.
+
+### `behshatizewar.md.txt`
+
+- 25,615 bytes, SHA-256 `47b5c142a2b5abdf7bc1e1edd238c676b484482f7bb8d3d6b1c3d64f191804a7`, 232 lines of English Markdown, 0 Arabic-script characters.
+- It is an abridged summary of the Mahomedy translation (it quotes the publisher's note dated 12 November 1993) and ends with "(End of extracted clean data for initial sections. Cursor can now easily read and search these rules.)". It is a machine-produced partial paraphrase with no page references.
+- It cannot be used as evidence (not source text, no provenance, translation copyright) and cannot be used as a calibration reference (a reference must be a human transcription of a specific PDF page). The ingestion scripts only read `.pdf` files, so it is ignored by them. It is not registered as a book file.
+
 ## Real-book retrieval evaluation
 
 `npm run eval:real-book -- [--madhhab hanafi] [--book <title part>]` runs five English/Urdu/Arabic question triplets against approved chunks only and writes a JSON report to `.data/eval/`. It reports `NOT MEASURABLE` while the approved index is empty, which is the current state.

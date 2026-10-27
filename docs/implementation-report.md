@@ -93,3 +93,13 @@ Verified on this machine on 27 October 2026:
 Counts: documents 16, chunks 868 (all quarantined Minhaj), approved searchable chunks 0, approved documents 0. Measured OCR accuracy: none. Real-book retrieval figures: none.
 
 Blocked on people, not code: al-Quduri needs at least 10 human reference transcriptions of the selected pages (checked against the page images), a named reviewer, the edition as printed, and a rights/metadata approval. None of that was invented.
+
+## Update 2026-10-27 (evening): two new Bahishti Zewar files
+
+Detail in `docs/ocr-ingestion.md`, section "two new Bahishti Zewar files".
+
+- `BahishtiZewar.pdf` (890 pages, SHA-256 `61d2ba3c…eebaa9`) is the English translation ("Heavenly Ornaments", Mahomedy, Zam Zam Publishers; imprint details read by OCR and unverified), not a second Urdu scan. The default `urd+ara` setting produced noise at confidence 44 to 52; `eng` reads at 93 to 94. `src/server/ocr/books.ts` gives it id `bahishti-zewar-en`, language `en`, OCR language `eng`; the Urdu scan keeps `bahishti-zewar`. Registered in `src/data/sources.ts` as `rights_review_required`. Test added in `tests/ocr-engine.test.ts`. 23 pages OCR'd in pilots, 0 indexed, verdict `unmeasured`.
+- `behshatizewar.md.txt` is a 232-line English Markdown summary produced by a tool, with no page references. It is not evidence, not a calibration reference, and not registered as a book file.
+- Open decision for the owner, not a code task: whether an English translation may be cited as evidence at all (English is the bridged language; answers are meant to rest on Arabic and Urdu source text), and, if so, rights clearance for the translation.
+
+Verified: `npm test` 125 passed, `typecheck` and `lint` clean. Approved searchable chunks remain 0.

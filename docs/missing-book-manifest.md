@@ -26,6 +26,9 @@ SHA-256 is lowercase. `alhadayah4.pdf` and `alhadayah5.pdf` are the same bytes.
 | fhindia5.pdf | 14743749 | 576 | `cb22449e57e36efbadfb5c28c470e6d852f5e19ee1ff9ccb4aa4156c01d0e349` | الفتاوى الهندية - ج 5 | empty |
 | fhindia6.pdf | 13763538 | 542 | `7165d8008a480a8497a9af4c8373d18da227a893f23e95f28e98b6462bd11ddd` | الفتاوى الهندية - ج 6 | empty |
 | BahishtiZewarUrduCompletedeobandi--Www.momeen.blogspot.com.pdf | 60135901 | 768 | `c646c674df4df21ebafdff472fcab259e708097fa1abfd266f866cb8cca8e47d` | empty | empty |
+| BahishtiZewar.pdf (added 27 Oct 2026) | 47402421 | 890 | `61d2ba3caaebc15957b3c018155e683bdca49a2393eebbeff3105b1d29eebaa9` | empty | empty |
+
+`BahishtiZewar.pdf` is the English translation ("Heavenly Ornaments", Mahomedy, Zam Zam Publishers, 2nd ed. 2005 as read by OCR from its imprint page, unverified), not a second Urdu scan. It has its own book id `bahishti-zewar-en`. A file `behshatizewar.md.txt` in the same folder is an English Markdown summary with no page references; it is not a book file and is not usable as evidence or as a calibration reference. See `docs/ocr-ingestion.md`.
 
 The Hidayah filename digit does not match the volume number in the info Title. `al-hadaya1.pdf` says volume 8. `alhadayah9.pdf` says volume 1. There is no separate volume-1 file of al-Fatawa al-Hindiyyah in the folder. `fhindia2.pdf` through `fhindia6.pdf` say volumes 2 through 6. The Blogspot name in the Bahishti Zewar filename is not a licence.
 
@@ -72,6 +75,7 @@ State on 27 October 2026, from `npm run ocr:doctor` and the pilot runs. Searchab
 | --- | ---: | --- | ---: | ---: | --- |
 | al-qaduri | 255 | image scan | 36 (ara); 12 calibration pages selected with drafts (16, 38, 48, 59, 75, 91, 96, 117, 133, 165, 208, 224) | 0 | unmeasured; first-book target, blocked on human references, reviewer, edition and rights |
 | bahishti-zewar | 768 | garbled text layer, Nastaliq scan | 4 (urd+ara) and 4 (urd), all failed the confidence screen | 0 | unmeasured |
+| bahishti-zewar-en | 890 | image scan of the English translation (Mahomedy, Zam Zam) | 8 (urd+ara, wrong language), 15 (eng; confidence 93 to 94) | 0 | unmeasured; a translation, so citing it as evidence needs a policy decision as well as rights clearance |
 | al-hadaya1 (vol. 8 per PDF info) | 374 | image scan | 0 | 0 | not started |
 | alhadayah-2 (vol. 7) | 459 | image scan | 0 | 0 | not started |
 | alhadayah3 (vol. 6) | 528 | image scan | 0 | 0 | not started |
@@ -89,7 +93,7 @@ State on 27 October 2026, from `npm run ocr:doctor` and the pilot runs. Searchab
 
 Scan classification comes from 8 sampled pages per file. The pipeline classifies every page individually when it runs.
 
-Each still needs, in order: an OCR pilot, human reference transcriptions (at least 10 reliable pages per book, spread over front, middle, back and poor pages, with reviewer and edition), `ocr:calibrate -- evaluate`, owner rights and metadata approval, then `ocr:index`. See `docs/ocr-ingestion.md`. Bahishti Zewar also needs a different OCR engine or a text source, because Tesseract confidence on it was 29 to 39.
+Each still needs, in order: an OCR pilot, human reference transcriptions (at least 10 reliable pages per book, spread over front, middle, back and poor pages, with reviewer and edition), `ocr:calibrate -- evaluate`, owner rights and metadata approval, then `ocr:index`. See `docs/ocr-ingestion.md`. The Urdu Bahishti Zewar scan also needs a different OCR engine or a text source, because Tesseract confidence on it was 29 to 39. The English translation scan reads well under `eng`, but it is a translation, not the Urdu source.
 
 ### C. Quarantined third-party text
 

@@ -3,7 +3,7 @@ import { tmpdir } from "os";
 import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
 import { assessText, scriptForLanguage } from "@/server/ocr/assess";
-import { describeBook } from "@/server/ocr/books";
+import { bookIdFromFile, describeBook, resolveBook } from "@/server/ocr/books";
 import { loadOcrConfig, validateLanguages } from "@/server/ocr/config";
 import { OcrError } from "@/server/ocr/errors";
 import { aggregateMetrics, evaluatePair, foldedForm, strictForm } from "@/server/ocr/metrics";
@@ -136,8 +136,22 @@ describe("configuration and the quality gate thresholds", () => {
     const bahishti = describeBook("BahishtiZewarUrduCompletedeobandi--Www.momeen.blogspot.com.pdf", "x");
     expect(bahishti.ocrLanguages).toBe("urd+ara");
     expect(bahishti.language).toBe("ur");
-    expect(describeBook("bahishtizewar.pdf", "x", { ocrLanguages: "urd" }).ocrLanguages).toBe("urd");
+    expect(describeBook("BahishtiZewarUrduCompletedeobandi--Www.momeen.blogspot.com.pdf", "x", { ocrLanguages: "urd" }).ocrLanguages).toBe("urd");
     expect(() => describeBook("al-qaduri.pdf", "x", { ocrLanguages: "ara;rm" })).toThrow(/not valid/);
+  });
+
+  it("keeps the English Bahishti Zewar translation apart from the Urdu scan", () => {
+    expect(bookIdFromFile("BahishtiZewarUrduCompletedeobandi--Www.momeen.blogspot.com.pdf")).toBe("bahishti-zewar");
+    expect(bookIdFromFile("BahishtiZewar.pdf")).toBe("bahishti-zewar-en");
+    const english = describeBook("BahishtiZewar.pdf", "x");
+    expect(english.workId).toBe("bahishti");
+    expect(english.language).toBe("en");
+    expect(english.ocrLanguages).toBe("eng");
+    expect(english.sourceClass).toBe("secondary");
+    const books = [describeBook("BahishtiZewar.pdf", "x"), describeBook("BahishtiZewarUrduCompletedeobandi--Www.momeen.blogspot.com.pdf", "x")];
+    expect(resolveBook(books, "bahishti-zewar").fileName).toMatch(/momeen/);
+    expect(resolveBook(books, "bahishti-zewar-en").fileName).toBe("BahishtiZewar.pdf");
+    expect(() => resolveBook(books, "bahishti")).toThrow(/more than one file/);
   });
 });
 

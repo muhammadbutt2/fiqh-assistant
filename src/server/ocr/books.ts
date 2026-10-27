@@ -19,6 +19,10 @@ export type BookMeta = {
 
 export function bookIdFromFile(fileName: string): string {
   const base = fileName.replace(/\.[^.]+$/, "").toLowerCase();
+  // The Urdu scan (momeen.blogspot name) keeps the original id. BahishtiZewar.pdf is an English translation
+  // of the same work, so it gets its own id and is never confused with the Urdu scan in OCR output,
+  // calibration or indexing.
+  if (base === "bahishtizewar") return "bahishti-zewar-en";
   if (base.startsWith("bahishtizewar")) return "bahishti-zewar";
   return base.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
@@ -28,6 +32,14 @@ type Rule = { test: (name: string) => boolean; workId: string; sourceClass: Book
 // Language choice per work. Hidayah, Quduri and Hindiyyah are Arabic-only texts. Bahishti Zewar is Urdu prose
 // that quotes Arabic, so it gets urd+ara until a pilot shows that urd alone reads the quotations acceptably.
 const RULES: Rule[] = [
+  {
+    test: (n) => n === "bahishtizewar.pdf",
+    workId: "bahishti",
+    sourceClass: "secondary",
+    language: "en",
+    ocrLanguages: "eng",
+    reason: "English translation of Bahishti Zewar (running header 'Heavenly Ornaments'). A pilot under urd+ara read 0% Arabic script; eng read 93 to 94 confidence. This is a translation, not the Urdu source text.",
+  },
   { test: (n) => n.startsWith("al-qaduri"), workId: "quduri", sourceClass: "primary", language: "ar", ocrLanguages: "ara", reason: "Arabic-only matn." },
   { test: (n) => n.startsWith("al-hadaya") || n.startsWith("alhadayah"), workId: "hidayah", sourceClass: "primary", language: "ar", ocrLanguages: "ara", reason: "Arabic-only text." },
   { test: (n) => n.startsWith("fhindia"), workId: "hindiyyah", sourceClass: "primary", language: "ar", ocrLanguages: "ara", reason: "Arabic-only text." },
