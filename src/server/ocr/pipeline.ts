@@ -20,7 +20,7 @@ export type PageRecord = {
   text: string;
   embedded: Assessment | null;
   ocr: null | {
-    engine: "tesseract";
+    engine: "tesseract" | "imported_package";
     engineVersion: string;
     languages: string;
     traineddata: Record<string, string>;
@@ -135,6 +135,10 @@ async function writeJsonAtomic(file: string, value: unknown): Promise<void> {
   const temp = `${file}.${process.pid}.tmp`;
   await writeFile(temp, JSON.stringify(value), "utf8");
   await rename(temp, file);
+}
+
+export async function writePageRecord(dir: string, record: PageRecord): Promise<void> {
+  await writeJsonAtomic(pageFile(dir, record.pdfPage), record);
 }
 
 export async function readPageRecord(dir: string, pdfPage: number): Promise<PageRecord | null> {

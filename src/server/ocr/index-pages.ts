@@ -34,6 +34,13 @@ export function derivePageState(record: PageRecord, context: PageStateContext): 
 
   const passedGates = (): { ok: boolean; state?: DocPageState; reasons: string[] } => {
     if (record.method === "embedded_text") return { ok: true, reasons: [] };
+    if (record.ocr?.engine === "imported_package") {
+      return {
+        ok: false,
+        state: "accuracy_unmeasured",
+        reasons: ["Imported package OCR is a different engine from this configuration's Tesseract run. Its accuracy has not been measured against human-checked references."],
+      };
+    }
     if (context.verdict === null || context.verdict === "unmeasured" || context.verdict === "insufficient_samples" || context.verdict === "insufficient_coverage") {
       return { ok: false, state: "accuracy_unmeasured", reasons: ["OCR accuracy for this book and configuration has not been measured against human-checked references."] };
     }
@@ -122,7 +129,9 @@ function chunksFromRecords(input: {
   const group: PageRecord[][] = [];
   for (const record of input.records) {
     const last = group[group.length - 1];
-    if (last && (last[last.length - 1] as PageRecord).pdfPage + 1 === record.pdfPage) last.push(record);
+    const previous = last?.[last.length - 1];
+    const sameEngine = (previous?.ocr?.engine ?? previous?.method) === (record.ocr?.engine ?? record.method);
+    if (previous && previous.pdfPage + 1 === record.pdfPage && sameEngine) last.push(record);
     else group.push([record]);
   }
   const chunks: StoredChunk[] = [];
@@ -166,7 +175,7 @@ function chunksFromRecords(input: {
       const provenance: ChunkProvenance = {
         bookId: input.calibration.bookId,
         sourceSha256: input.sourceSha256,
-        configHash: input.configHash,
+        configHash: record.configHash,
         extraction: isOcr ? "ocr" : "embedded_text",
         pageState: input.pageState,
         ocrEngine: record.ocr?.engine ?? null,
@@ -179,7 +188,7 @@ function chunksFromRecords(input: {
           : { status: "not_applicable", reliableSamples: null, strictCer: null, strictWer: null, thresholdsLoosened: false },
         printedPageSource: input.printed[String(record.pdfPage)] !== undefined ? "verified_page_map" : "none",
       };
-      chunks.push({ ...chunk, id: chunkId(input.sourceSha256, input.configHash, record.pdfPage, index), ocrQuality: isOcr ? input.ocrQuality : "not_needed", provenance });
+      chunks.push({ ...chunk, id: chunkId(input.sourceSha256, record.configHash, record.pdfPage, index), ocrQuality: isOcr ? input.ocrQuality : "not_needed", provenance });
     }
   }
   return { chunks, printedAttached };

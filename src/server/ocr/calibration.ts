@@ -82,7 +82,7 @@ function layoutScore(text: string): number {
 }
 
 export function selectSamples(records: PageRecord[], numPages: number, count: number, thresholds: Thresholds): SampleEntry[] {
-  const ocr = records.filter((record) => record.stage === "ocr_completed" && record.text.trim().length > 0);
+  const ocr = records.filter((record) => record.stage === "ocr_completed" && record.text.trim().length > 0 && record.ocr?.engine !== "imported_package");
   const picked = new Map<number, Set<Stratum>>();
   const add = (record: PageRecord | undefined, stratum: Stratum) => {
     if (!record) return;
@@ -159,6 +159,9 @@ export async function importReference(input: {
   const records = await listPageRecords(input.outputDir);
   const record = records.find((item) => item.pdfPage === input.pdfPage);
   if (!record || record.stage !== "ocr_completed") throw new Error(`Page ${input.pdfPage} has no completed OCR output in this configuration. Run the pilot for that page first.`);
+  if (record.ocr?.engine === "imported_package") {
+    throw new Error(`Page ${input.pdfPage} is imported-package OCR, not this configuration's Tesseract output. Transcribe the page image and import a reference only for a Tesseract page.`);
+  }
   if (!input.reviewer.trim()) throw new Error("A reviewer name is required so the reference can be attributed.");
   const warnings: string[] = [];
   const identical = strictForm(input.referenceText) === strictForm(record.text);
@@ -225,7 +228,7 @@ export async function evaluateCalibration(input: {
 }): Promise<CalibrationReport> {
   const { thresholds } = input;
   const records = await listPageRecords(input.outputDir);
-  const ocrRecords = records.filter((record) => record.stage === "ocr_completed");
+  const ocrRecords = records.filter((record) => record.stage === "ocr_completed" && record.ocr?.engine !== "imported_package");
   const samples = await readSamples(input.outputDir);
   const refPages = await referencedPages(input.outputDir);
   const allPages = Array.from(new Set([...samples.map((entry) => entry.pdfPage), ...refPages])).sort((a, b) => a - b);
@@ -308,7 +311,7 @@ export async function evaluateCalibration(input: {
   }
   if (thresholds.loosened) reasons.push("Thresholds were loosened with OCR_ALLOW_LOOSE_THRESHOLDS.");
 
-  const firstOcr = ocrRecords.find((record) => record.ocr)?.ocr ?? null;
+  const firstOcr = ocrRecords.find((record) => record.ocr?.engine === "tesseract")?.ocr ?? ocrRecords.find((record) => record.ocr)?.ocr ?? null;
   return {
     schemaVersion: 1,
     bookId: input.bookId,

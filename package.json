@@ -20,6 +20,7 @@
     "ingest:full": "tsx scripts/ingest-local-books.ts --mode full",
     "ocr:calibrate": "tsx scripts/ocr-calibrate.ts",
     "ocr:index": "tsx scripts/ocr-index.ts",
+    "ocr:import-package": "tsx scripts/ocr-import-package.ts",
     "ingest:open-text": "tsx scripts/ingest-open-text.ts",
     "eval:real-book": "tsx scripts/eval-real-book.ts",
     "website:live-enable": "tsx scripts/live-website-enable.ts"
