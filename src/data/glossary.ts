@@ -62,7 +62,7 @@ export const CONCEPTS: Concept[] = [
   concept({
     id: "salah", category: "worship", en: "ritual prayer (salah)", ar: "صلاة", ur: "نماز",
     arVariants: ["الصلاة", "صلوات", "يصلي", "صلى"], urVariants: ["نمازیں", "نماز پڑھ"],
-    enExpressions: ["prayer", "prayers", "pray"], transliterations: ["salah", "salat", "salaah", "namaz", "namaaz"],
+    enExpressions: ["prayer", "prayers", "pray"], transliterations: ["salah", "salat", "salaah", "namaz", "namaaz", "solat"],
     relatedDistinct: ["dua"],
     note: "Schools differ on form, timing and what affects validity. A match is a topic, not a ruling.",
     leaveUntranslated: false,
@@ -102,7 +102,7 @@ export const CONCEPTS: Concept[] = [
   concept({
     id: "wudu", category: "purification", en: "wudu", ar: "وضوء", ur: "وضو",
     arVariants: ["الوضوء", "يتوضأ", "توضأ"], urVariants: ["وضو ٹوٹ"],
-    enExpressions: ["ablution"], transliterations: ["wudu", "wudhu", "wuzu", "wudoo"],
+    enExpressions: ["ablution"], transliterations: ["wudu", "wudhu", "wuzu", "wudoo", "wuduk"],
     relatedDistinct: ["ghusl", "tayammum"],
     note: "Schools differ on what breaks ablution. Not the same as ghusl.",
     leaveUntranslated: true,
@@ -331,6 +331,14 @@ export const CONCEPTS: Concept[] = [
     relatedDistinct: ["riba", "ijarah"],
     note: "Trade questions depend on the contract type. A keyword match does not identify the contract.",
     leaveUntranslated: false,
+  }),
+  concept({
+    id: "shirkah", category: "finance", en: "partnership (shirkah)", ar: "شركة", ur: "شراکت",
+    arVariants: ["الشركة", "شركات", "شركة العقد", "مضاربة", "المضاربة"], urVariants: ["شراکت داری", "مضاربت", "شرکت"],
+    enExpressions: ["partnership", "partner", "partners", "joint venture"], transliterations: ["shirkah", "shirka", "musharakah", "mudarabah", "mudaraba"],
+    relatedDistinct: ["bay", "zakat"],
+    note: "Partnership and investment contracts are not zakat on savings. A shared word for wealth does not make the passage evidence for zakat.",
+    leaveUntranslated: true,
   }),
   concept({
     id: "ijarah", category: "finance", en: "hire and lease (ijarah)", ar: "إجارة", ur: "اجارہ",

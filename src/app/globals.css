@@ -189,6 +189,16 @@ textarea { min-height: 9rem; resize: vertical; }
 blockquote.excerpt { margin: 0.5rem 0; padding: 0.6rem 0.9rem; border-inline-start: 3px solid var(--gold); background: var(--surface); }
 .alert { color: var(--danger); }
 .status { padding: 0.8rem 1rem; border-left: 4px solid var(--gold); background: var(--surface); }
+.answer-header { margin-bottom: 1rem; }
+.answer-header h2 { font-size: 1.35rem; margin: 0 0 0.7rem; }
+.answer-meta { display: grid; gap: 0.45rem; margin: 0; }
+.answer-meta div { display: grid; grid-template-columns: minmax(8rem, 12rem) 1fr; gap: 0.4rem 0.8rem; }
+.answer-meta dt { color: var(--muted); font-weight: 600; }
+.answer-meta dd { margin: 0; }
+.answer-section { margin-top: 1.15rem; }
+.answer-section h3 { font-size: 1.15rem; margin: 0 0 0.45rem; }
+.source-list { padding-inline-start: 1.2rem; }
+.source-list a { overflow-wrap: anywhere; }
 [dir="rtl"] .status { border-left: 0; border-right: 4px solid var(--gold); }
 
 .site-footer { padding: 2.5rem 0 1rem; border-top: 1px solid var(--line); margin-top: 2rem; }

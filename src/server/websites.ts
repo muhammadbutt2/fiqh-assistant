@@ -1,5 +1,6 @@
 import { normalizeInstitution, type Institution } from "@/data/sources";
 import type { Madhhab } from "@/server/madhhab";
+import { scorePassageRelevance } from "@/server/retrieve";
 import { checkPermittedPage, hostAllowed, inspectUrl, templateHostAllowed, WEBSITE_USER_AGENT } from "@/server/source-check";
 import type { StoredChunk } from "@/server/types";
 import { normalizeForSearch } from "@/server/normalize";
@@ -19,6 +20,7 @@ export type WebsiteHit = {
   snippetOnly: boolean;
   sourceApprovalStatus: "enabled" | "trial";
   provenance: "opensearch_rss_page" | "page_url";
+  publishedAt: string | null;
 };
 
 export type WebsiteSearchReport = {
@@ -26,6 +28,7 @@ export type WebsiteSearchReport = {
   skipped: WebsiteSkip[];
   hits: WebsiteHit[];
   queries: string[];
+  rejectedIrrelevant: { url: string; title: string; reason: string }[];
 };
 
 export type RetrievalTestRecord = NonNullable<Institution["lastRetrievalTest"]>;
@@ -132,6 +135,7 @@ export async function searchApprovedWebsites(input: {
   const skipped: WebsiteSkip[] = [];
   const searched: { id: string; domain: string; method: string }[] = [];
   const hits: WebsiteHit[] = [];
+  const rejectedIrrelevant: { url: string; title: string; reason: string }[] = [];
   const fetchImpl = input.fetchImpl ?? fetch;
   const limit = input.limit ?? 3;
   const fetchPages = input.fetchPages !== false;
@@ -139,6 +143,7 @@ export async function searchApprovedWebsites(input: {
   const timeoutMs = input.timeoutMs ?? 15000;
   const queries = buildWebsiteQueries(input);
   const seenUrls = new Set<string>();
+  const relevanceQuestion = input.query ?? queries.join(" ");
 
   for (const raw of input.institutions) {
     const institution = normalizeInstitution(raw);
@@ -183,6 +188,12 @@ export async function searchApprovedWebsites(input: {
             }
             const canonical = shape.parsed.toString();
             if (seenUrls.has(canonical)) continue;
+            const preview = scorePassageRelevance(relevanceQuestion, item.title, { requirePrimaryTopic: true });
+            if (!preview.relevant) {
+              seenUrls.add(canonical);
+              rejectedIrrelevant.push({ url: canonical, title: item.title, reason: preview.reason });
+              continue;
+            }
             seenUrls.add(canonical);
             if (delayMs > 0 && hits.length > 0) await sleep(delayMs);
             const hit = await retrieveApprovedPage({
@@ -198,6 +209,11 @@ export async function searchApprovedWebsites(input: {
             });
             if (!hit.ok) skipped.push({ id: institution.id, domain: institution.domain, reason: hit.reason });
             else {
+              const body = scorePassageRelevance(relevanceQuestion, `${hit.hit.title} ${hit.hit.excerpt}`, { requirePrimaryTopic: true });
+              if (!body.relevant) {
+                rejectedIrrelevant.push({ url: hit.hit.url, title: hit.hit.title, reason: body.reason });
+                continue;
+              }
               hits.push(hit.hit);
               retrievedHere += 1;
             }
@@ -207,7 +223,13 @@ export async function searchApprovedWebsites(input: {
         }
       }
       if (retrievedHere === 0) {
-        skipped.push({ id: institution.id, domain: institution.domain, reason: "OpenSearch returned no permitted article pages for the generated queries." });
+        skipped.push({
+          id: institution.id,
+          domain: institution.domain,
+          reason: rejectedIrrelevant.length > 0
+            ? "The website was searched. Retrieved articles were not relevant to the question."
+            : "OpenSearch returned no permitted article pages for the generated queries.",
+        });
       }
       continue;
     }
@@ -245,10 +267,17 @@ export async function searchApprovedWebsites(input: {
         provenance: "page_url",
       });
       if (!hit.ok) skipped.push({ id: institution.id, domain: institution.domain, reason: hit.reason });
-      else hits.push(hit.hit);
+      else {
+        const body = scorePassageRelevance(relevanceQuestion, `${hit.hit.title} ${hit.hit.excerpt}`, { requirePrimaryTopic: true });
+        if (!body.relevant) {
+          rejectedIrrelevant.push({ url: hit.hit.url, title: hit.hit.title, reason: body.reason });
+          continue;
+        }
+        hits.push(hit.hit);
+      }
     }
   }
-  return { searched, skipped, hits, queries };
+  return { searched, skipped, hits, queries, rejectedIrrelevant };
 }
 
 async function retrieveApprovedPage(input: {
@@ -296,8 +325,14 @@ async function retrieveApprovedPage(input: {
       snippetOnly,
       sourceApprovalStatus: input.institution.retrievalAllowed ? "enabled" : "trial",
       provenance: input.provenance,
+      publishedAt: parsePublishedDate(title, excerpt),
     },
   };
+}
+
+function parsePublishedDate(title: string, excerpt: string): string | null {
+  const match = `${title} ${excerpt}`.match(/\b(20\d{2}|19\d{2})[-/](0?[1-9]|1[0-2])[-/](0?[1-9]|[12]\d|3[01])\b/);
+  return match?.[0] ?? null;
 }
 
 export function websiteHitsToChunks(hits: WebsiteHit[]): StoredChunk[] {

@@ -240,7 +240,7 @@ describe("approved website retrieval", () => {
     expect(answer.citations[0]?.url).toContain("/en/artikel/");
     expect(answer.citations[0]?.originalExcerpt).toMatch(/Act 505/);
     expect(answer.citations[0]?.sourceType).toBe("institutional_fatwa");
-    expect(answer.answer).toMatch(/not quotations from a classical fiqh book/i);
+    expect(answer.answer).toMatch(/not a quotation from a classical fiqh book/i);
   });
 });
 

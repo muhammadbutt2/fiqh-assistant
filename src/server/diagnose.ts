@@ -35,14 +35,17 @@ export async function diagnoseRetrieval(input: {
   });
   return {
     questionOriginal: input.question,
+    selectedMadhhab: input.madhhab,
     detectedLanguage: processed.detectedLanguage,
     detectionConfidence: processed.detectionConfidence,
+    responseLanguageNote: "The response language is chosen separately from the question language.",
     detection: processed.detection,
     arabicQuery: processed.arabicQuery.text,
     arabicQueryMethod: processed.arabicQuery.method,
     urduQuery: processed.urduQuery.text,
     urduQueryMethod: processed.urduQuery.method,
     englishIntermediate: processed.englishIntermediate,
+    generatedQueries: research.summary.generatedQueries,
     concepts: processed.concepts,
     entities: processed.entities,
     ambiguities: processed.ambiguities,
@@ -50,23 +53,32 @@ export async function diagnoseRetrieval(input: {
     highStakes: processed.highStakes,
     variants: processed.variants.map(({ id, kind, language, text, method, model }) => ({ id, kind, language, text, method, model })),
     translationMethod: processed.translationMethod,
+    translationProvider: processed.translationMethod === "provider"
+      ? "configured"
+      : processed.translationMethod === "provider_failed"
+        ? "failed"
+        : "unavailable",
     semanticRetrieval: "unavailable" as const,
     searchMethods: research.summary.searchMethods,
     evidenceRole: research.evidenceRole,
     approvedPoolForMadhhab: research.approvedPool,
     unapprovedCandidatesForMadhhab: research.candidatePool,
     candidateCount: approved.length,
+    relevantPassagesSelected: research.summary.relevantSelected,
+    candidatesRejectedForIrrelevance: research.summary.rejectedIrrelevant,
+    candidatesRejectedForSourceQuality: research.summary.rejectedQuality,
     neighborsAdded: research.neighborsAdded,
+    booksSearched: research.summary.booksSearched,
     websitesSearched: research.websites.searched,
     websitesSkipped: research.websites.skipped,
+    websiteUrls: research.websites.hits.map((hit) => ({ url: hit.url, status: hit.sourceApprovalStatus, title: hit.title })),
     citationValidation: research.evidenceRole === "approved"
       ? "passages_retrieved"
       : research.evidenceRole === "institutional"
         ? "institutional_pages_not_a_book_ruling"
-        : research.evidenceRole === "candidate"
-          ? "candidate_only_not_a_ruling"
-          : "no_passage",
-    sufficientEvidence: research.evidenceRole === "approved",
+        : "no_eligible_evidence",
+    sufficientEvidence: research.evidenceRole === "approved" || research.evidenceRole === "institutional",
+    outcomeReason: research.summary.outcomeReason,
     websiteHits: research.websites.hits.map((hit) => ({
       url: hit.url,
       title: hit.title,
@@ -77,6 +89,8 @@ export async function diagnoseRetrieval(input: {
       excerpt: hit.excerpt.slice(0, 240),
       sourceApprovalStatus: hit.sourceApprovalStatus,
     })),
+    rejectedIrrelevant: research.summary.rejectedIrrelevantSample,
+    rejectedQuality: research.summary.rejectedQualitySample,
     candidates: approved.map((chunk) => ({
       sourceId: chunk.id,
       title: chunk.title,
@@ -108,6 +122,6 @@ export async function diagnoseRetrieval(input: {
       rejectedFromApprovedEvidence: explainRejection(chunk, input.madhhab, false),
       evidenceRole: "candidate" as const,
     })),
-    note: "Approved book matches are the only passages that can support a ruling. Institutional pages are shown with a direct link and are not quotations from a classical book. Unmeasured OCR may appear as labelled candidates. Semantic embeddings are not configured. Websites are searched only when local approved evidence is empty, and only for institutions with retrievalAllowed true after an admin live test.",
+    note: "Approved book matches are the only passages that can support a user-facing quotation. Institutional pages are shown with a direct article link and are not quotations from a classical book. Unmeasured OCR may appear here as labelled candidates for administrators only. Semantic embeddings are not configured. Websites are searched only when local approved evidence is empty, and only for institutions with retrievalAllowed true after an admin live test.",
   };
 }

@@ -108,13 +108,60 @@ export type PublicCitation = {
   verificationStatus: VerificationStatus;
   opinionLabels: OpinionLabel[];
   testFixture: boolean;
-  evidenceRole: "approved" | "institutional" | "candidate";
+  evidenceRole: "approved" | "institutional";
+  relevanceNote?: string;
+  retrievedAt?: string | null;
+  publishedAt?: string | null;
   provenance?: {
     extraction: ChunkProvenance["extraction"];
     ocrAccuracy: ChunkProvenance["accuracy"]["status"];
     ocrModel: string | null;
     sourceSha256: string;
   };
+};
+
+export type PresentedEvidence = {
+  sourceId: string;
+  kind: "book" | "website";
+  title: string;
+  author: string;
+  madhhab: Madhhab;
+  edition: string | null;
+  volume: number | null;
+  printedPages: { start: number; end: number } | null;
+  pdfPages: { start: number; end: number } | null;
+  originalExcerpt: string;
+  excerptLanguage: string;
+  translation: string | null;
+  translationLabel: string | null;
+  relevance: string;
+  url: string | null;
+  articleTitle?: string;
+  institutionName?: string;
+  retrievedAt?: string | null;
+  publishedAt?: string | null;
+};
+
+export type PresentedSource = {
+  n: number;
+  sourceId: string;
+  label: string;
+  url: string | null;
+};
+
+export type AnswerPresentation = {
+  questionTitle: string;
+  madhhabLabel: string;
+  answerLanguageLabel: string;
+  coverageStatus: string;
+  directAnswer: string;
+  explanation: string | null;
+  bookEvidence: PresentedEvidence[];
+  websiteEvidence: PresentedEvidence[];
+  conditions: string[];
+  disagreements: string[];
+  sources: PresentedSource[];
+  furtherReview: string | null;
 };
 
 export type AnswerStatus = "answered" | "insufficient_evidence" | "needs_clarification" | "human_review_required";
@@ -149,13 +196,14 @@ export type PublicAnswer = {
   candidates?: string[];
   /** How the question was turned into Arabic and Urdu search queries. Search aids, not rulings. */
   querySummary?: QuerySummary;
-  /** Approved evidence, labelled candidate discovery, or nothing retrieved. */
-  evidenceRole?: "approved" | "institutional" | "candidate" | "none";
+  /** Approved book evidence, institutional website evidence, or nothing eligible. */
+  evidenceRole?: "approved" | "institutional" | "none";
   research?: ResearchSummary;
+  presentation?: AnswerPresentation;
 };
 
 export type ResearchSummary = {
-  evidenceRole: "approved" | "institutional" | "candidate" | "none";
+  evidenceRole: "approved" | "institutional" | "none";
   approvedMatches: number;
   candidateMatches: number;
   neighborsAdded: number;
@@ -164,7 +212,16 @@ export type ResearchSummary = {
   websitesSearched: number;
   websiteHits: number;
   websitesSkipped: { id: string; reason: string }[];
+  websitesSearchedDetail: { id: string; domain: string; method: string }[];
   searchMethods: string[];
+  relevantSelected: number;
+  rejectedIrrelevant: number;
+  rejectedQuality: number;
+  rejectedIrrelevantSample: { sourceId: string; title: string; reason: string }[];
+  rejectedQualitySample: { sourceId: string; title: string; reason: string }[];
+  booksSearched: { documentId: string; title: string; searchable: boolean; approved: boolean }[];
+  generatedQueries: { ar: string | null; ur: string | null };
+  outcomeReason: string;
 };
 
 export type QuerySummary = {

@@ -13,7 +13,8 @@ describe.skipIf(!live)("live muftiwp.gov.my retrieval", () => {
     const report = await searchApprovedWebsites({
       institutions: [institution],
       madhhab: "shafii",
-      queries: ["wudu", "solat", "prayer"],
+      query: "Is wudu required before prayer?",
+      queries: ["wudu", "wuduk", "ablution"],
       limit: 2,
       fetchPages: true,
       delayMs: 400,

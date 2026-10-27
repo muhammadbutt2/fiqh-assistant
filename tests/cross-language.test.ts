@@ -51,7 +51,8 @@ describe("three-language terminology retrieval", () => {
     expect(ids.indexOf("zakat-h-ur")).toBeLessThan(5);
     expect(ids).not.toContain("zakat-m");
     expect(ids).not.toContain("zakat-ocr");
-    expect(ids.indexOf("zakat-h")).toBeLessThan(ids.indexOf("sadaqah-h") === -1 ? 99 : ids.indexOf("sadaqah-h"));
+    expect(ids).not.toContain("salah-h");
+    expect(ids).not.toContain("sadaqah-h");
   });
 
   it("does not turn sadaqah into a zakat query, and keeps both when both are asked", () => {
@@ -108,6 +109,6 @@ describe("three-language terminology retrieval", () => {
     expect(report.unapprovedCandidatesForMadhhab).toBe(1);
     expect(report.unapprovedMatches.map((item) => item.sourceId)).toContain("zakat-ocr");
     expect(report.websitesSkipped.length).toBeGreaterThan(0);
-    expect(report.note).toContain("labelled candidates");
+    expect(report.note).toContain("administrators only");
   });
 });

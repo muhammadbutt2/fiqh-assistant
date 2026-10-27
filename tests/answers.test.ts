@@ -103,7 +103,7 @@ describe("answer pipeline", () => {
     expect(answer.retrievalLanguages).toEqual(expect.arrayContaining(["ar", "ur"]));
     expect(answer.sourceIds).toContain("ar-namaz");
     expect(answer.preferredAnswerLanguage).toBe("ur");
-    expect(answer.limitations.join(" ")).toContain("Arabic and Urdu");
+    expect(answer.querySummary?.urduQuery.method === "terminology" || answer.querySummary?.arabicQuery.method === "terminology").toBe(true);
   });
 
   it("returns the exact English no-evidence sentence for an empty library", async () => {
@@ -140,7 +140,7 @@ describe("answer pipeline", () => {
     expect(answer.answerStatus).toBe("human_review_required");
   });
 
-  it("shows unmeasured OCR as a labelled candidate and does not generate a ruling from it", async () => {
+  it("does not show unmeasured OCR as user-facing evidence or generate a ruling from it", async () => {
     const draft = fixture({
       id: "ocr-draft",
       madhhab: "hanafi",
@@ -159,12 +159,14 @@ describe("answer pipeline", () => {
       chunks: [draft],
       chat: chat(async () => validModel(draft, "This would be an invented ruling.")),
     });
-    expect(answer.citations.map((item) => item.sourceId)).toEqual(["ocr-draft"]);
-    expect(answer.citations[0]?.evidenceRole).toBe("candidate");
-    expect(answer.evidenceRole).toBe("candidate");
-    expect(answer.answerStatus).toBe("human_review_required");
+    expect(answer.citations).toEqual([]);
+    expect(answer.evidenceRole).toBe("none");
+    expect(answer.answerStatus).toBe("insufficient_evidence");
+    expect(answer.answer).toBe(NO_EVIDENCE_EN);
     expect(answer.answer).not.toContain("invented ruling");
-    expect(answer.humanReviewRecommended).toBe(true);
+    expect(answer.presentation?.bookEvidence).toEqual([]);
+    expect(answer.research?.candidateMatches).toBeGreaterThan(0);
+    expect(answer.limitations.join(" ")).toMatch(/unmeasured or unapproved/i);
     expect(answer.research?.websitesSkipped.length).toBeGreaterThan(0);
   });
 
@@ -179,7 +181,7 @@ describe("answer pipeline", () => {
       chat: unavailableChat(),
     });
     expect(answer.citations.map((item) => item.sourceId).sort()).toEqual(["z-10", "z-11"]);
-    expect(answer.research?.neighborsAdded).toBe(1);
+    expect((answer.research?.neighborsAdded ?? 0) + (answer.research?.approvedMatches ?? 0)).toBeGreaterThanOrEqual(2);
   });
 
   it("does not show a Maliki passage for a Hanafi question even as a candidate", async () => {

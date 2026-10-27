@@ -1,6 +1,6 @@
 "use client";
 
-import type { PublicAnswer, PublicCitation } from "@/server/types";
+import type { AnswerPresentation, PresentedEvidence, PublicAnswer, PublicCitation } from "@/server/types";
 import { directionFor, getLocale } from "@/data/languages";
 import { uiStrings } from "@/data/messages";
 
@@ -20,72 +20,170 @@ function reference(citation: PublicCitation): string {
   return parts.join(" · ");
 }
 
-export function AnswerPanel({ answer, onFeedback }: { answer: PublicAnswer; onFeedback?: (kind: "incorrect_citation" | "incorrect_answer") => void }) {
-  const locale = getLocale(answer.preferredAnswerLanguage);
-  const direction = locale?.direction ?? "ltr";
-  const font = locale?.font === "nastaliq" ? "urdu" : locale?.font === "arabic" ? "arabic" : undefined;
-  const strings = uiStrings(answer.preferredAnswerLanguage);
-  const summary = answer.querySummary;
+function evidenceMeta(item: PresentedEvidence): string {
+  const parts: string[] = [];
+  if (item.author) parts.push(item.author);
+  if (item.kind === "book") {
+    if (item.edition) parts.push(item.edition);
+    if (item.volume !== null) parts.push(`vol. ${item.volume}`);
+    if (item.printedPages) parts.push(item.printedPages.start === item.printedPages.end ? `p. ${item.printedPages.start}` : `pp. ${item.printedPages.start}–${item.printedPages.end}`);
+    else if (item.pdfPages) parts.push(item.pdfPages.start === item.pdfPages.end ? `PDF page index ${item.pdfPages.start}` : `PDF page index ${item.pdfPages.start}–${item.pdfPages.end}`);
+  } else {
+    if (item.publishedAt) parts.push(`Published ${item.publishedAt}`);
+    if (item.retrievedAt) parts.push(`Retrieved ${item.retrievedAt}`);
+  }
+  return parts.join(" · ");
+}
+
+function EvidenceCard({ item, originalLabel, translationFallback }: { item: PresentedEvidence; originalLabel: string; translationFallback: string }) {
+  const sourceDir = directionFor(item.excerptLanguage);
+  const sourceFont = item.excerptLanguage === "ur" ? "urdu" : item.excerptLanguage === "ar" ? "arabic" : undefined;
+  const heading = item.kind === "website" ? (item.articleTitle ?? item.title) : item.title;
   return (
-    <article className={`answer ${font ?? ""}`} lang={locale?.bcp47 ?? answer.preferredAnswerLanguage} dir={direction} aria-live="polite">
-      <p className="status">{answer.notAMufti ? "This is an AI-assisted research service, not a mufti, and not a substitute for qualified scholarly judgment." : null}</p>
-      <h2>Answer Summary</h2>
-      <p className="meta" lang="en" dir="ltr">Searched Arabic and Urdu sources for the selected school. This reply is in your selected language. A quotation stays in the language of the book.</p>
-      <p>{answer.answer}</p>
-      {answer.nativeReview === "pending" && answer.canonicalEnglish ? (
+    <section className="citation">
+      <h3>
+        {item.url ? <a href={item.url} target="_blank" rel="noreferrer">{heading}</a> : heading}
+      </h3>
+      <p className="meta" lang="en" dir="ltr">{evidenceMeta(item)}</p>
+      <details open>
+        <summary>{originalLabel}</summary>
+        <blockquote className={`excerpt ${sourceFont ?? ""}`} dir={sourceDir} lang={item.excerptLanguage}>
+          <p className="excerpt" dir={sourceDir} lang={item.excerptLanguage}>{item.originalExcerpt}</p>
+        </blockquote>
+      </details>
+      {item.translation ? (
+        <p><strong>{item.translationLabel}:</strong> {item.translation}</p>
+      ) : <p className="meta" lang="en" dir="ltr">{translationFallback}</p>}
+      {item.relevance ? <p className="meta">{item.relevance}</p> : null}
+    </section>
+  );
+}
+
+function PresentationView({ presentation, answer }: { presentation: AnswerPresentation; answer: PublicAnswer }) {
+  const strings = uiStrings(answer.preferredAnswerLanguage);
+  const locale = getLocale(answer.preferredAnswerLanguage);
+  return (
+    <>
+      <header className="answer-header">
+        <h2>{presentation.questionTitle}</h2>
+        <dl className="answer-meta">
+          <div><dt>{strings.selectedSchool}</dt><dd>{presentation.madhhabLabel}</dd></div>
+          <div><dt>{strings.answerLanguage}</dt><dd>{presentation.answerLanguageLabel}</dd></div>
+          <div><dt>{strings.coverageLabel}</dt><dd>{presentation.coverageStatus}</dd></div>
+        </dl>
+      </header>
+      <section className="answer-section">
+        <h3>{strings.answerHeading}</h3>
+        <p>{presentation.directAnswer}</p>
+      </section>
+      {locale?.localeId !== "en" && answer.nativeReview === "pending" && answer.canonicalEnglish && answer.answerStatus === "insufficient_evidence" ? (
         <details>
           <summary>English wording, kept until native-speaker review</summary>
           <p lang="en" dir="ltr">{answer.canonicalEnglish}</p>
         </details>
       ) : null}
-      <h3>School of jurisprudence</h3>
-      <p>{answer.madhhab}</p>
-      <h3>Evidence</h3>
-      <p>{answer.evidenceSummary}</p>
-      {answer.evidenceRole === "candidate" ? <p className="alert" role="status">The excerpt below was retrieved. It is not approved evidence and is not a ruling.</p> : null}
-      {answer.evidenceRole === "institutional" ? <p className="alert" role="status">The excerpt below was retrieved from an approved institutional website. It is not a quotation from a classical fiqh book, and it is not a ruling from this service.</p> : null}
-      {answer.citations.length === 0 ? <p>No citation is available.</p> : null}
-      {answer.citations.map((citation) => {
-        const sourceDir = directionFor(citation.language);
-        const sourceFont = citation.language === "ur" ? "urdu" : citation.language === "ar" ? "arabic" : undefined;
-        return (
-          <section className="citation" key={citation.sourceId}>
-            <h3>{citation.title}</h3>
-            <p className="meta" lang="en" dir="ltr">{citation.author} · {citation.sourceType} · {citation.verificationStatus} · {citation.evidenceRole}{citation.provenance ? ` · OCR accuracy ${citation.provenance.ocrAccuracy}` : ""}{citation.testFixture ? " · test fixture" : ""}</p>
-            {citation.opinionLabels.length > 0 ? <p>Labelled opinions: {citation.opinionLabels.map((item) => `${item.madhhab}: ${item.label}`).join("; ")}</p> : null}
-            <details open>
-              <summary>{strings.originalExcerpt}</summary>
-              <blockquote className={`excerpt ${sourceFont ?? ""}`} dir={sourceDir} lang={citation.language}>
-                <p className="excerpt" dir={sourceDir} lang={citation.language}>{citation.originalExcerpt}</p>
-              </blockquote>
-            </details>
-            {citation.translatedExcerpt ? (
-              <p><strong>{strings.translation} (supplied with the record, not an AI paraphrase):</strong> {citation.translatedExcerpt}</p>
-            ) : <p className="meta" lang="en" dir="ltr">No reviewed translation is stored for this passage. The original text above is the evidence.</p>}
-            <p className="meta" lang="en" dir="ltr">
-              {strings.references}: {reference(citation)}.
-              {citation.printedPages ? "" : " Printed page not recorded; the digital page index is shown instead."}
-              {citation.fatwaNumber ? ` Fatwa number: ${citation.fatwaNumber}.` : ""}
-            </p>
-            {citation.url ? <a href={citation.url} target="_blank" rel="noreferrer">Open original source</a> : <p className="meta" lang="en" dir="ltr">No public link is stored for this source.</p>}
-          </section>
-        );
-      })}
-      {answer.uncertainties.length > 0 ? <><h3>Differences or uncertainty</h3><ul>{answer.uncertainties.map((item) => <li key={item}>{item}</li>)}</ul></> : null}
-      {answer.limitations.length > 0 ? <><h3>{strings.limitations}</h3><ul lang="en" dir="ltr">{answer.limitations.map((item) => <li key={item}>{item}</li>)}</ul></> : null}
-      {summary ? (
-        <details lang="en" dir="ltr">
-          <summary>How this question was searched</summary>
-          <p className="meta">Detected question language: {summary.detectedLanguage} ({summary.detectionConfidence} confidence). Concepts: {summary.concepts.length > 0 ? summary.concepts.join(", ") : "none recognised"}.</p>
-          <p className="meta">Arabic search query ({summary.arabicQuery.method}): <span lang="ar" dir="rtl" className="arabic">{summary.arabicQuery.text ?? "—"}</span></p>
-          <p className="meta">Urdu search query ({summary.urduQuery.method}): <span lang="ur" dir="rtl" className="urdu">{summary.urduQuery.text ?? "—"}</span></p>
-          {summary.negations.length > 0 ? <p className="meta">Negations kept: {summary.negations.join(", ")}</p> : null}
-          {summary.conditions.length > 0 ? <p className="meta">Conditions kept: {summary.conditions.join(", ")}</p> : null}
-          {summary.numbers.length > 0 ? <p className="meta">Numbers kept: {summary.numbers.join(", ")}</p> : null}
-          {summary.ambiguities.length > 0 ? <ul className="meta">{summary.ambiguities.map((item) => <li key={item}>{item}</li>)}</ul> : null}
-          {summary.warnings.length > 0 ? <ul className="meta">{summary.warnings.map((item) => <li key={item}>{item}</li>)}</ul> : null}
-        </details>
+      {presentation.explanation ? (
+        <section className="answer-section">
+          <h3>{strings.explanationHeading}</h3>
+          <p>{presentation.explanation}</p>
+        </section>
       ) : null}
+      {presentation.bookEvidence.length > 0 ? (
+        <section className="answer-section">
+          <h3>{strings.bookEvidenceHeading}</h3>
+          {presentation.bookEvidence.map((item) => (
+            <EvidenceCard key={item.sourceId} item={item} originalLabel={strings.originalExcerpt} translationFallback={strings.noTranslation} />
+          ))}
+        </section>
+      ) : null}
+      {presentation.websiteEvidence.length > 0 ? (
+        <section className="answer-section">
+          <h3>{strings.websiteEvidenceHeading}</h3>
+          {presentation.websiteEvidence.map((item) => (
+            <EvidenceCard key={item.sourceId} item={item} originalLabel={strings.originalExcerpt} translationFallback={strings.noTranslation} />
+          ))}
+        </section>
+      ) : null}
+      {presentation.conditions.length > 0 ? (
+        <section className="answer-section">
+          <h3>{strings.conditionsHeading}</h3>
+          <ul>{presentation.conditions.map((item) => <li key={item}>{item}</li>)}</ul>
+        </section>
+      ) : null}
+      {presentation.disagreements.length > 0 ? (
+        <section className="answer-section">
+          <h3>{strings.differencesHeading}</h3>
+          <ul>{presentation.disagreements.map((item) => <li key={item}>{item}</li>)}</ul>
+        </section>
+      ) : null}
+      {presentation.sources.length > 0 ? (
+        <section className="answer-section">
+          <h3>{strings.sourcesHeading}</h3>
+          <ol className="source-list">
+            {presentation.sources.map((item) => (
+              <li key={item.sourceId}>
+                {item.url ? <a href={item.url} target="_blank" rel="noreferrer">{item.n}. {item.label}</a> : <span>{item.n}. {item.label}</span>}
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+      {presentation.furtherReview ? (
+        <section className="answer-section">
+          <h3>{strings.furtherReviewHeading}</h3>
+          <p>{presentation.furtherReview}</p>
+        </section>
+      ) : null}
+      {answer.limitations.length > 0 && presentation.furtherReview !== answer.limitations.join(" ") ? (
+        <section className="answer-section">
+          <h3>{strings.limitations}</h3>
+          <ul lang="en" dir="ltr">{answer.limitations.map((item) => <li key={item}>{item}</li>)}</ul>
+        </section>
+      ) : null}
+    </>
+  );
+}
+
+export function AnswerPanel({ answer, onFeedback }: { answer: PublicAnswer; onFeedback?: (kind: "incorrect_citation" | "incorrect_answer") => void }) {
+  const locale = getLocale(answer.preferredAnswerLanguage);
+  const direction = locale?.direction ?? "ltr";
+  const font = locale?.font === "nastaliq" ? "urdu" : locale?.font === "arabic" ? "arabic" : undefined;
+  const strings = uiStrings(answer.preferredAnswerLanguage);
+  const presentation = answer.presentation;
+  return (
+    <article className={`answer ${font ?? ""}`} lang={locale?.bcp47 ?? answer.preferredAnswerLanguage} dir={direction} aria-live="polite">
+      <p className="status">{answer.notAMufti ? "This is an AI-assisted research service, not a mufti, and not a substitute for qualified scholarly judgment." : null}</p>
+      {presentation ? (
+        <PresentationView presentation={presentation} answer={answer} />
+      ) : (
+        <>
+          <h2>{strings.answerHeading}</h2>
+          <p>{answer.answer}</p>
+          {answer.nativeReview === "pending" && answer.canonicalEnglish ? (
+            <details>
+              <summary>English wording, kept until native-speaker review</summary>
+              <p lang="en" dir="ltr">{answer.canonicalEnglish}</p>
+            </details>
+          ) : null}
+          <h3>{strings.selectedSchool}</h3>
+          <p>{answer.madhhab}</p>
+          {answer.citations.map((citation) => {
+            const sourceDir = directionFor(citation.language);
+            const sourceFont = citation.language === "ur" ? "urdu" : citation.language === "ar" ? "arabic" : undefined;
+            return (
+              <section className="citation" key={citation.sourceId}>
+                <h3>{citation.title}</h3>
+                <p className="meta" lang="en" dir="ltr">{reference(citation)}</p>
+                <blockquote className={`excerpt ${sourceFont ?? ""}`} dir={sourceDir} lang={citation.language}>
+                  <p className="excerpt" dir={sourceDir} lang={citation.language}>{citation.originalExcerpt}</p>
+                </blockquote>
+                {citation.translatedExcerpt ? <p><strong>{strings.translation}:</strong> {citation.translatedExcerpt}</p> : <p className="meta" lang="en" dir="ltr">{strings.noTranslation}</p>}
+                {citation.printedPages ? null : <p className="meta" lang="en" dir="ltr">Printed page not recorded; the digital page index is shown instead.</p>}
+              </section>
+            );
+          })}
+        </>
+      )}
       <h3>Next steps</h3>
       <p>{answer.humanReviewRecommended ? "A qualified mufti should be consulted. This service has not arranged that review." : "No further step is required by the system."}</p>
       <div className="row">

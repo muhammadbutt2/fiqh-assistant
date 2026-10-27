@@ -107,7 +107,7 @@ describe("interface", () => {
       expect(screen.getByRole("article").getAttribute("dir")).toBe("rtl");
       expect(screen.getByRole("article").getAttribute("lang")).toBe(locale);
       expect(screen.getByText("اقتباس").getAttribute("dir")).toBe("rtl");
-      expect(screen.getByText(/not recorded/)).toBeTruthy();
+      expect(screen.getAllByText(/not recorded/).length).toBeGreaterThan(0);
       expect(screen.getByText(/No review has taken place|has not arranged that review/)).toBeTruthy();
       unmount();
     }
@@ -119,28 +119,54 @@ describe("interface", () => {
     unmount();
   });
 
-  it("shows the query summary and no fabricated printed page", () => {
-    const withSummary: PublicAnswer = {
+  it("renders the professional template without empty sections or fabricated printed pages", () => {
+    const withPresentation: PublicAnswer = {
       ...answer("en", "ar"),
-      querySummary: {
-        detectedLanguage: "en",
-        detectionConfidence: "medium",
-        arabicQuery: { text: "زكاة المال المدخر", method: "terminology" },
-        urduQuery: { text: "جمع شدہ مال پر زکوٰۃ", method: "terminology" },
-        concepts: ["zakat", "intent_obligation"],
-        negations: ["not"],
-        conditions: ["if"],
-        numbers: [],
-        ambiguities: [],
-        warnings: ["terminology strings"],
+      answerStatus: "human_review_required",
+      answer: "The retrieved approved source addresses this question.",
+      presentation: {
+        questionTitle: "Do I have to pay zakat on my savings?",
+        madhhabLabel: "Hanafi",
+        answerLanguageLabel: "English",
+        coverageStatus: "Approved book evidence for the selected school.",
+        directAnswer: "The retrieved approved source addresses this question.",
+        explanation: "The passage discusses zakat on saved wealth.",
+        bookEvidence: [{
+          sourceId: "cite-1",
+          kind: "book",
+          title: "TEST FIXTURE",
+          author: "Synthetic",
+          madhhab: "hanafi",
+          edition: null,
+          volume: null,
+          printedPages: null,
+          pdfPages: { start: 2, end: 2 },
+          originalExcerpt: "اقتباس",
+          excerptLanguage: "ar",
+          translation: null,
+          translationLabel: null,
+          relevance: "Addresses zakat.",
+          url: null,
+        }],
+        websiteEvidence: [],
+        conditions: ["nisab"],
+        disagreements: [],
+        sources: [{ n: 1, sourceId: "cite-1", label: "TEST FIXTURE · Synthetic · PDF page index 2", url: null }],
+        furtherReview: null,
       },
     };
-    render(<AnswerPanel answer={withSummary} />);
-    expect(screen.getByText(/How this question was searched/)).toBeTruthy();
-    expect(screen.getByText("زكاة المال المدخر").getAttribute("dir")).toBe("rtl");
-    expect(screen.getByText(/Negations kept: not/)).toBeTruthy();
-    expect(document.body.textContent).toMatch(/Printed page not recorded/);
+    render(<AnswerPanel answer={withPresentation} />);
+    expect(screen.getByRole("heading", { name: "Answer" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Explanation" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Evidence from Classical Books" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Conditions and Important Details" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Sources" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Differences of Opinion" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Supporting Institutional Sources" })).toBeNull();
+    expect(screen.getByText("اقتباس").getAttribute("dir")).toBe("rtl");
+    expect(document.body.textContent).toMatch(/PDF page index 2/);
     expect(document.body.textContent).not.toMatch(/p\. \d/);
+    expect(document.body.textContent).not.toMatch(/How this question was searched/);
   });
 
   it("keeps the question when the request fails and says the library is empty", async () => {
