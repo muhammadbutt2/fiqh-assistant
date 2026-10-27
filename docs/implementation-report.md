@@ -103,3 +103,17 @@ Detail in `docs/ocr-ingestion.md`, section "two new Bahishti Zewar files".
 - Open decision for the owner, not a code task: whether an English translation may be cited as evidence at all (English is the bridged language; answers are meant to rest on Arabic and Urdu source text), and, if so, rights clearance for the translation.
 
 Verified: `npm test` 125 passed, `typecheck` and `lint` clean. Approved searchable chunks remain 0.
+
+## Update 2026-10-27 (evening): every function exercised end to end
+
+What was run on this machine, in this order, with the results:
+
+- `npm run build` (prisma generate + next build): succeeds; 8 pages and 14 API routes compiled.
+- `npm start` (production build) and an HTTP smoke test of every page and route: 47 of 47 checks passed. Covered: `/`, `/ask`, `/sources`, `/methodology`, `/privacy`, `/terms`, `/account`, `/admin`; `/api/languages` (exactly en, ur, ar), `/api/madhhabs`, `/api/sources`, `/api/status`; `/api/ask` in English, Urdu, Roman Urdu and Arabic for all four schools (each answered in the matching language with `insufficient_evidence`, 0 citations, human review recommended), explicit `answerLocale`, `INVALID_LOCALE`, `INVALID_MADHHAB`, `INVALID_REQUEST`; `/api/feedback` accept and reject; account register, read and update preferences, locale validation, duplicate email 409, delete, logout; admin login right and wrong, stats, sources, jobs, diagnose (Urdu question, 5 variants, approved pool 0), document review refusing approval without a verification note, institution review refusing a trusted pool without reviewer fields, upload of a text file (stored as `rights_review_required`, not searchable), duplicate upload, job retry, and admin routes closing after logout. Test records were removed from the store afterwards.
+- Found and fixed while doing this: uploading the same bytes twice returned HTTP 500 (`DUPLICATE_FILE` thrown out of `storeUpload`). `postAdminUpload` now returns 409 `{ error: "DUPLICATE_FILE" }`; test added in `tests/ingest-security.test.ts`.
+- Admin and account routes were returning `ADMIN_NOT_CONFIGURED` / `AUTH_NOT_CONFIGURED` because `.env` had no `AUTH_SECRET` or `ADMIN_PASSWORD`. Random local values were generated into `.env` (git-ignored, not in any document). They are local development credentials only.
+- CLI: `ocr:doctor` (Tesseract 5.4 found, ara/urd/eng/osd present, one-page OCR smoke test 94.4 confidence on the English scan, 16 PDFs classified), `inventory:books`, `ocr:calibrate -- evaluate --book al-qaduri` (verdict `unmeasured`, 0 reliable references), `ocr:calibrate -- select --book bahishti-zewar-en` (8 sample pages chosen), `ocr:index -- book --book al-qaduri` (every page `accuracy_unmeasured`, nothing promoted), `eval:real-book` (NOT MEASURABLE, approved index empty), `ingest:open-text` (idempotent, skipped duplicate bytes). All ran without error.
+- `npm test` 126 passed, `typecheck` and `lint` clean.
+- Not run: `db:migrate` / `db:seed` / `worker` (they need the optional PostgreSQL; the app runs on the JSON store without it).
+
+What "unblocked" does not mean here: no book became searchable. Approved chunks are still 0 for every school, so every question still returns `insufficient_evidence`. That gate opens only with human reference transcriptions (10 or more pages per book), a named reviewer, the edition as printed, and rights approval, none of which can be produced by code or by this assistant without fabricating them.
